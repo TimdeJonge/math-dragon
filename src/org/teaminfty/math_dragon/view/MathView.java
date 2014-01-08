@@ -6,10 +6,9 @@ import org.teaminfty.math_dragon.R;
 import org.teaminfty.math_dragon.model.ParenthesesHelper;
 import org.teaminfty.math_dragon.view.fragments.FragmentKeyboard;
 import org.teaminfty.math_dragon.view.math.MathBinaryOperationLinear;
-import org.teaminfty.math_dragon.view.math.MathConstant;
+import org.teaminfty.math_dragon.view.math.MathSymbol;
 import org.teaminfty.math_dragon.view.math.MathObject;
 import org.teaminfty.math_dragon.view.math.MathObjectEmpty;
-import org.teaminfty.math_dragon.view.math.MathVariable;
 
 import android.content.Context;
 import android.graphics.Canvas;
@@ -37,6 +36,9 @@ public class MathView extends View
     /** The translation that's applied to the canvas because of the scrolling */
     private Point scrollTranslate = new Point(0, 0);
     
+    /** Whether or not this {@link MathView} is enabled (i.e. it can be edited) */
+    private boolean enabled = true;
+    
     public MathView(Context context)
     {
         super(context);
@@ -61,16 +63,41 @@ public class MathView extends View
         initGestureDetector();
     }
     
+    /** Set whether or not this {@link MathView} is enabled (i.e. it can be edited)
+     * @param enable Whether or not to enable this {@link MathView} */
+    public void setEnabled(boolean enable)
+    {
+        if(!(enabled = enable))
+        {
+            setHoverState(mathObject, HoverState.NONE);
+            invalidate();
+        }
+    }
+    
     /** Set the top-level {@link MathObject}
-     * @param newMathObject The new value for the top-level {@link MathObject}
-     */
+     * @param newMathObject The new value for the top-level {@link MathObject} */
     public void setMathObject(MathObject newMathObject)
     {
         // Reset the translation
-        scrollTranslate.set(0, 0);
+        resetScroll();
         
         // Set the MathObject
         setMathObjectHelper(newMathObject);
+        
+        // Notify the listener of the change
+        mathObjectChanged();
+    }
+
+    /** Set the top-level {@link MathObject} without sending an {@link OnMathObjectChangeListener} event.
+     * This also won't reset the scroll translation.
+     * @param newMathObject The new value for the top-level {@link MathObject} */
+    public void setMathObjectSilent(MathObject newMathObject)
+    {
+        // Set the MathObject
+        setMathObjectHelper(newMathObject);
+        
+        // Make sure the scroll translation is still bounded
+        boundScrollTranslation();
     }
     
     /** Private helper for {@link MathView#setMathObject(MathObject) setMathObject()} */
@@ -79,12 +106,18 @@ public class MathView extends View
         // Remember the new MathObject, if it is null we create a MathObjectEmpty
         if((mathObject = newMathObject) == null)
             mathObject = new MathObjectEmpty();
-        
         // Set the default size and the level for the MathObject
         mathObject.setDefaultHeight((int) mathObjectDefaultHeight);
         mathObject.setLevel(0);
         
         // Redraw
+        invalidate();
+    }
+    
+    /** Resets the scroll position */
+    public void resetScroll()
+    {
+        scrollTranslate.set(0, 0);
         invalidate();
     }
     
@@ -105,9 +138,9 @@ public class MathView extends View
     public interface OnShowKeyboardListener
     {
         /** Called when a keyboard with the given confirm listener should be shown
-         * @param mathConstant The initial value for the input (can be <tt>null</tt>)
+         * @param mathSymbol The initial value for the input (can be <tt>null</tt>)
          * @param listener The confirm listener */
-        public void showKeyboard(MathConstant mathConstant, FragmentKeyboard.OnConfirmListener listener);
+        public void showKeyboard(MathSymbol mathSymbol, FragmentKeyboard.OnConfirmListener listener);
     }
     
     /** The current {@link OnShowKeyboardListener} */
@@ -119,12 +152,35 @@ public class MathView extends View
     { onShowKeyboardListener = listener; }
     
     /** Asks the parent fragment to show the keyboard with the given confirm listener
-         * @param mathConstant The initial value for the input (can be <tt>null</tt>)
+     * @param mathSymbol The initial value for the input (can be <tt>null</tt>)
      * @param listener The confirm listener */
-    protected void showKeyboard(MathConstant mathConstant, FragmentKeyboard.OnConfirmListener listener)
+    protected void showKeyboard(MathSymbol mathSymbol, FragmentKeyboard.OnConfirmListener listener)
     {
         if(onShowKeyboardListener != null)
-            onShowKeyboardListener.showKeyboard(mathConstant, listener);
+            onShowKeyboardListener.showKeyboard(mathSymbol, listener);
+    }
+    
+    /** A listener that can be implemented to be notified of when the {@link MathObject} changes */
+    public interface OnMathObjectChangeListener
+    {
+        /** Called when the {@link MathObject} has changed
+         * @param mathObject The current {@link MathObject} */
+        public void changed(MathObject mathObject);
+    }
+    
+    /** The current {@link OnMathObjectChangeListener} */
+    private OnMathObjectChangeListener onMathObjectChange = null;
+    
+    /** Set the current {@link OnMathObjectChangeListener}
+     * @param listener The new {@link OnMathObjectChangeListener} */
+    public void setOnMathObjectChangeListener(OnMathObjectChangeListener listener)
+    { onMathObjectChange = listener; }
+    
+    /** Call {@link OnMathObjectChangeListener#change() OnMathObjectChange.change()} on the current {@link OnMathObjectChangeListener} */
+    protected void mathObjectChanged()
+    {
+        if(onMathObjectChange != null)
+            onMathObjectChange.changed(mathObject);
     }
 
     /** Recursively sets the given state for the given {@link MathObject} and all of its children
@@ -198,6 +254,9 @@ public class MathView extends View
         @Override
         public boolean onSingleTapConfirmed(MotionEvent me)
         {
+            // If we're disabled, ignore
+            if(!enabled) return true;
+            
             // Determine click position
             Point clickPos = new Point((int) me.getX(), (int) me.getY());
             
@@ -216,15 +275,15 @@ public class MathView extends View
                 // Pop off an element of the queue
                 HoverInformation info = queue.pollFirst();
                 
-                // If the MathObject is a MathObjectEmpty or MathConstant, we check if we clicked on it
-                if(info.mathObject instanceof MathObjectEmpty || info.mathObject instanceof MathConstant || info.mathObject instanceof MathVariable)
+                // If the MathObject is a MathObjectEmpty or MathSymbol, we check if we clicked on it
+                if(info.mathObject instanceof MathObjectEmpty || info.mathObject instanceof MathSymbol)
                 {
                     // If we click inside the object, we're done looking
                     if(info.boundingBox.contains(clickPos.x, clickPos.y))
                     {
                         // Show the keyboard with the given confirm listener
-                        if(info.mathObject instanceof MathConstant)
-                            showKeyboard((MathConstant) info.mathObject, new MathObjectReplacer(info));
+                        if(info.mathObject instanceof MathSymbol)
+                            showKeyboard((MathSymbol) info.mathObject, new MathObjectReplacer(info));
                         else
                             showKeyboard(null, new MathObjectReplacer(info));
                     }
@@ -258,7 +317,8 @@ public class MathView extends View
         @Override
         public boolean onScale(ScaleGestureDetector detector)
         {
-            mathObjectDefaultHeight = Math.max(mathObjectDefaultHeight * detector.getScaleFactor(), getResources().getDimensionPixelSize(R.dimen.math_object_min_default_size));
+            mathObjectDefaultHeight = Math.min(getResources().getDimensionPixelSize(R.dimen.math_object_max_default_size),
+                    Math.max(mathObjectDefaultHeight * detector.getScaleFactor(), getResources().getDimensionPixelSize(R.dimen.math_object_min_default_size)));
             mathObject.setDefaultHeight((int) mathObjectDefaultHeight);
             invalidate();
             return true;
@@ -268,6 +328,9 @@ public class MathView extends View
     @Override
     public boolean onDragEvent(DragEvent event)
     {
+        // If we're disabled, ignore
+        if(!enabled) return false;
+        
         // Retrieve the shadow
         MathShadow mathShadow = (MathShadow) event.getLocalState();
         
@@ -559,11 +622,14 @@ public class MathView extends View
                 
                 // Make sure every MathObject has the right level
                 mathObject.setLevel(0);
+                
+                // Notify the listener of the change
+                mathObjectChanged();
             }
         }
     }
     
-    /** Replaces an {@link MathObject} with the {@link MathConstant} that the keyboard returns */
+    /** Replaces an {@link MathObject} with the {@link MathSymbol} that the keyboard returns */
     private class MathObjectReplacer implements FragmentKeyboard.OnConfirmListener
     {
         /** The info about the {@link MathObject} that is to replaced */
@@ -577,16 +643,19 @@ public class MathView extends View
         }
 
         @Override
-        public void confirmed(MathConstant mathConstant)
+        public void confirmed(MathSymbol mathSymbol)
         {
             // Place the symbol
             if(mathObjectInfo.parent == null)
-                setMathObjectHelper(mathConstant);
+                setMathObjectHelper(mathSymbol);
             else
-                mathObjectInfo.parent.setChild(mathObjectInfo.childIndex, mathConstant);
+                mathObjectInfo.parent.setChild(mathObjectInfo.childIndex, mathSymbol);
             
             // Redraw
             invalidate();
+            
+            // Notify the listener of the change
+            mathObjectChanged();
         }
     }
 

@@ -10,10 +10,8 @@ import org.teaminfty.math_dragon.model.ModelHelper;
 import org.teaminfty.math_dragon.model.ParenthesesHelper;
 import org.teaminfty.math_dragon.view.TypefaceHolder;
 import org.teaminfty.math_dragon.view.fragments.FragmentEvaluation;
-import org.teaminfty.math_dragon.view.fragments.FragmentKeyboard;
 import org.teaminfty.math_dragon.view.fragments.FragmentMainScreen;
 import org.teaminfty.math_dragon.view.fragments.FragmentOperationsSource;
-import org.teaminfty.math_dragon.view.math.MathConstant;
 import org.teaminfty.math_dragon.view.math.MathObject;
 
 import android.app.Activity;
@@ -130,28 +128,24 @@ public class MainActivity extends Activity implements FragmentOperationsSource.C
      */
     public void wolfram(View view)
     {
-        try
+        // Get the MathObject
+        FragmentMainScreen fragmentMainScreen = (FragmentMainScreen) getFragmentManager().findFragmentById(R.id.fragmentMainScreen);
+        MathObject obj = fragmentMainScreen.getMathObject();
+        
+        // Only send to Wolfram|Alpha if the MathObject is completed
+        if(obj.isCompleted())
         {
-            // Get the expression as a string
-            FragmentMainScreen fragmentMainScreen = (FragmentMainScreen) getFragmentManager().findFragmentById(R.id.fragmentMainScreen);
-            IExpr expr = EvalHelper.eval(fragmentMainScreen.getMathObject());
-            String query = expr.toString();
+            // Get the query
+            String query = obj.toString();
             
+            // Strip the query of unnecessary outer parentheses
+            if(query.startsWith("(") && query.endsWith(")"))
+                query = query.substring(1, query.length() - 1);
+
             // Start an intent to send the user to Wolfram|Alpha
             Intent intent = new Intent(Intent.ACTION_VIEW);
-            // TODO one might be able to insert weird queries here using variables? not sure.
             intent.setData(Uri.parse("http://www.wolframalpha.com/input/?i=" + Uri.encode(query)));
             startActivity(intent);
-        }
-        catch(EmptyChildException e)
-        {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        }
-        catch(MathException e)
-        {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
         }
     }
 
@@ -163,13 +157,11 @@ public class MainActivity extends Activity implements FragmentOperationsSource.C
             FragmentMainScreen fragmentMainScreen = (FragmentMainScreen) getFragmentManager().findFragmentById(R.id.fragmentMainScreen);
             IExpr result = EvalEngine.eval( EvalHelper.eval(fragmentMainScreen.getMathObject()) );
 
-            // Get the evaluation fragment and show the result
-            FragmentEvaluation fragmentEvaluation = (FragmentEvaluation) getFragmentManager().findFragmentById(R.id.fragmentEvaluation);
+            // Create an evaluation fragment and show the result
+            FragmentEvaluation fragmentEvaluation = new FragmentEvaluation();
             fragmentEvaluation.showMathObject(ParenthesesHelper.setParentheses(ModelHelper.toMathObject(result)));
-
-            // Get the DrawerLayout object and open the drawer
-            DrawerLayout drawerLayout = (DrawerLayout) findViewById(R.id.drawerLayout);
-            drawerLayout.openDrawer(Gravity.RIGHT | Gravity.BOTTOM);
+            fragmentEvaluation.setEvalType(true);
+            fragmentEvaluation.show(getFragmentManager(), "evaluation");
         }
         catch(EmptyChildException e)
         {
@@ -185,17 +177,29 @@ public class MainActivity extends Activity implements FragmentOperationsSource.C
 
     public void approximate(View view)
     {
-        // Get the DrawerLayout object
-        DrawerLayout drawerLayout = (DrawerLayout) findViewById(R.id.drawerLayout);
+        try
+        {
+            // Calculate the answer
+            FragmentMainScreen fragmentMainScreen = (FragmentMainScreen) getFragmentManager().findFragmentById(R.id.fragmentMainScreen);
+            IExpr result = EvalEngine.eval( EvalHelper.eval(fragmentMainScreen.getMathObject()) );
+            // TODO Approximate the result
 
-        drawerLayout.openDrawer(Gravity.RIGHT | Gravity.BOTTOM);
-        // TODO: Approximate the MathObject in the drawing space, and display the resulting constant
-
-        FragmentEvaluation fragmentEvaluation = (FragmentEvaluation) getFragmentManager()
-                .findFragmentById(R.id.fragmentEvaluation);
-
-        MathConstant mathConstant = new MathConstant("42");
-        fragmentEvaluation.showMathObject(mathConstant);
+            // Create an evaluation fragment and show the result
+            FragmentEvaluation fragmentEvaluation = new FragmentEvaluation();
+            fragmentEvaluation.showMathObject(ParenthesesHelper.setParentheses(ModelHelper.toMathObject(result)));
+            fragmentEvaluation.setEvalType(false);
+            fragmentEvaluation.show(getFragmentManager(), "evaluation");
+        }
+        catch(EmptyChildException e)
+        {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+        catch(MathException e)
+        {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
     }
 
     public void clear(View view)
@@ -204,18 +208,6 @@ public class MainActivity extends Activity implements FragmentOperationsSource.C
         // Simply clear the current formula
         FragmentMainScreen fragmentMainScreen = (FragmentMainScreen) getFragmentManager().findFragmentById(R.id.fragmentMainScreen);
         fragmentMainScreen.clear();
-    }
-    
-    public void temporary(View view)
-    {
-    	/*// Get the DrawerLayout object DrawerLayout drawerLayout =
-        DrawerLayout drawerLayout = (DrawerLayout) findViewById(R.id.drawerLayout);
-         
-        // Show the favourites drawer
-        drawerLayout.openDrawer(Gravity.CENTER);*/
-         
-        FragmentKeyboard fragKeyboard = new FragmentKeyboard();
-        fragKeyboard.show(getFragmentManager(), "keyboard");
     }
 
     @Override
