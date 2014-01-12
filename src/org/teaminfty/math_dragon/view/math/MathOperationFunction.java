@@ -12,6 +12,14 @@ import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.Region;
 
+/**
+ * Mathematical function that takes only one argument. Currently, only
+ * trigonometric functions and the natural logarithm are implemented.
+ * 
+ * @author denu12
+ * @author Divendo
+ * @author FolkertVanVerseveld
+ */
 public class MathOperationFunction extends MathObject
 {
     /** An enumeration that describes the types of functions this function can be */
@@ -104,12 +112,29 @@ public class MathOperationFunction extends MathObject
         this(FunctionType.SIN);
     }
     
-    /** Constructor
-     * @param t The kind of function that we're constructing */
+    /**
+     * Constructor with specified type
+     * 
+     * @param t
+     *        The kind of function that we're constructing
+     */
     public MathOperationFunction(FunctionType t)
     {
+        this(t, null);
+    }
+
+    /**
+     * Constructor with specified type and value.
+     * 
+     * @param t
+     *        The kind of function that we're constructing
+     * @param value
+     *        The mathematical expression
+     */
+    public MathOperationFunction(FunctionType t, MathObject value)
+    {
         type = t;
-        children.add(new MathObjectEmpty());
+        children.add(value != null ? value : new MathObjectEmpty());
         operatorPaint.setAntiAlias(true);
         operatorPaint.setStrokeWidth(MathObject.lineWidth);
         operatorPaint.setTypeface(TypefaceHolder.dejavuSans);
@@ -225,7 +250,7 @@ public class MathOperationFunction extends MathObject
     @Override
     public Point getCenter()
     {        
-        return new Point(getBoundingBox().centerX(), getBoundingBox().centerY());
+        return new Point(this.getBoundingBox().centerX(), getChild(0).getCenter().y);
     }
     
     @Override
@@ -248,6 +273,7 @@ public class MathOperationFunction extends MathObject
         canvas.translate((operatorBounding[0].width() - textBounding.width()) / 2, (operatorBounding[0].height() - textBounding.height()) / 2);
         canvas.drawText(type.getName(), operatorBounding[0].left - textBounding.left, operatorBounding[0].top - textBounding.top, operatorPaint);
         canvas.restore();
+        
 
         // Use stroke style for the parentheses
         operatorPaint.setStyle(Paint.Style.STROKE);
@@ -288,7 +314,7 @@ public class MathOperationFunction extends MathObject
     {
         Element e = doc.createElement(NAME);
         e.setAttribute(ATTR_TYPE, type.getXmlName());
-        getChild(0).writeToXML(doc, el);
+        getChild(0).writeToXML(doc, e);
         el.appendChild(e);
     }
 }

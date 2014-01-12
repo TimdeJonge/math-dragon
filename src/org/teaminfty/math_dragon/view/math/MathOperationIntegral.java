@@ -66,6 +66,9 @@ public class MathOperationIntegral extends MathOperation
 		else
 			return "Integrate(" + getIntegratePart().toString() + ",{" + getIntegrateOver().toString() + "," + getIntegrateFrom().toString() + "," + getIntegrateTo().toString() + "})";
 	}
+
+    public int getPrecedence()
+    { return MathObjectPrecedence.FUNCTION; }
 	
 	public Rect[] getSizes()
 	{
@@ -312,4 +315,12 @@ public class MathOperationIntegral extends MathOperation
 	    for(MathObject child : children)
 	        child.writeToXML(doc, el);
 	}
+
+	@Override
+    public boolean isCompleted()
+    {
+	    if(getIntegratePart() instanceof MathObjectEmpty || getIntegrateOver() instanceof MathObjectEmpty)
+	        return false;
+        return !(getIntegrateFrom() instanceof MathObjectEmpty ^ getIntegrateTo() instanceof MathObjectEmpty);
+    }
 }

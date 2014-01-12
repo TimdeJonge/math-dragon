@@ -5,6 +5,7 @@ import org.w3c.dom.Element;
 
 import android.graphics.Canvas;
 import android.graphics.Paint;
+import android.graphics.Point;
 import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.Region;
@@ -36,6 +37,15 @@ public class MathParentheses extends MathObject
         // Initialise the paint
         paint.setStyle(Paint.Style.STROKE);
         paint.setAntiAlias(true);
+    }
+    
+    @Override
+    public String toString()
+    {
+        final String str = getChild(0).toString();
+        if(str.startsWith("(") && str.endsWith(")"))
+            return str;
+        return "(" + str + ")";
     }
     
     @Override
@@ -122,5 +132,11 @@ public class MathParentheses extends MathObject
         Element e = doc.createElement(NAME);
         children.get(0).writeToXML(doc, e);
         el.appendChild(e);
+    }
+    
+    @Override
+    public Point getCenter()
+    {
+    	return(this.getChild(0).getCenter());
     }
 }
