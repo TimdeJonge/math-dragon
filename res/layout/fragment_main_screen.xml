@@ -23,6 +23,16 @@
         android:contentDescription="@string/evaluate"
         android:onClick="evaluate"
         android:src="@drawable/evaluate" />
+    
+    <ImageButton
+        android:id="@+id/btn_test"
+        style="@style/CircleButton"
+        android:layout_alignParentBottom="true"
+        android:layout_alignParentRight="true"
+        android:layout_margin="60dp"
+        android:contentDescription="@string/evaluate"
+        android:onClick="test"
+        android:src="@drawable/evaluate" />
 
     <ImageButton
         android:id="@+id/btn_approximate"

@@ -12,6 +12,7 @@ import org.teaminfty.math_dragon.view.TypefaceHolder;
 import org.teaminfty.math_dragon.view.fragments.FragmentEvaluation;
 import org.teaminfty.math_dragon.view.fragments.FragmentMainScreen;
 import org.teaminfty.math_dragon.view.fragments.FragmentOperationsSource;
+import org.teaminfty.math_dragon.view.fragments.FragmentSaveLoad;
 import org.teaminfty.math_dragon.view.math.MathObject;
 
 import android.app.Activity;
@@ -177,7 +178,11 @@ public class MainActivity extends Activity implements FragmentOperationsSource.C
             e.printStackTrace();
         }
     }
-
+    public void test(View view)
+    {
+        FragmentSaveLoad fragmentSaveLoad = new FragmentSaveLoad();
+        fragmentSaveLoad.show(getFragmentManager(), "saveload");
+    }
     public void approximate(View view)
     {
         try
