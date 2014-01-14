@@ -7,11 +7,11 @@ import java.util.Collections;
 import org.teaminfty.math_dragon.R;
 import org.teaminfty.math_dragon.model.ParenthesesHelper;
 import org.teaminfty.math_dragon.view.fragments.FragmentKeyboard;
-import org.teaminfty.math_dragon.view.math.MathBinaryOperationLinear;
-import org.teaminfty.math_dragon.view.math.MathObjectDuplicator;
-import org.teaminfty.math_dragon.view.math.MathSymbol;
-import org.teaminfty.math_dragon.view.math.MathObject;
-import org.teaminfty.math_dragon.view.math.MathObjectEmpty;
+import org.teaminfty.math_dragon.view.math.ExpressionDuplicator;
+import org.teaminfty.math_dragon.view.math.Symbol;
+import org.teaminfty.math_dragon.view.math.Expression;
+import org.teaminfty.math_dragon.view.math.Empty;
+import org.teaminfty.math_dragon.view.math.operation.binary.Linear;
 
 import android.content.ClipData;
 import android.content.Context;
@@ -31,8 +31,8 @@ import android.view.View;
 /** A view that can hold and draw a mathematical formula */
 public class MathView extends View
 {
-    /** The top-level {@link MathObject} */
-    private MathObject mathObject = null;
+    /** The top-level {@link Expression} */
+    private Expression expression = null;
     
     /** The GestureDetector we're going to use for detecting scrolling and clicking */
     private GestureDetector gestureDetector = null;
@@ -49,10 +49,10 @@ public class MathView extends View
     /** Whether or not caching is currently enabled */
     private boolean cacheEnabled = true;
     
-    /** Cache for the {@link MathObject} */
+    /** Cache for the {@link Expression} */
     private Bitmap cache = null;
     
-    /** For which size the {@link MathObject} has been cached */
+    /** For which size the {@link Expression} has been cached */
     private int cachedForSize = -1;
     
     /** The paint that's used to draw the cache */
@@ -61,24 +61,24 @@ public class MathView extends View
     public MathView(Context context)
     {
         super(context);
-        mathObjectDefaultHeight = getResources().getDimensionPixelSize(R.dimen.math_object_default_size);
-        setMathObject(null);    // Setting the MathObject to null will construct a MathObjectEmpty
+        expressionDefaultHeight = getResources().getDimensionPixelSize(R.dimen.math_object_default_size);
+        setExpression(null);    // Setting the Expression to null will construct a Empty
         initGestureDetector();
     }
 
     public MathView(Context context, AttributeSet attrs)
     {
         super(context, attrs);
-        mathObjectDefaultHeight = getResources().getDimensionPixelSize(R.dimen.math_object_default_size);
-        setMathObject(null);    // Setting the MathObject to null will construct a MathObjectEmpty
+        expressionDefaultHeight = getResources().getDimensionPixelSize(R.dimen.math_object_default_size);
+        setExpression(null);    // Setting the Expression to null will construct a Empty
         initGestureDetector();
     }
 
     public MathView(Context context, AttributeSet attrs, int defStyleAttr)
     {
         super(context, attrs, defStyleAttr);
-        mathObjectDefaultHeight = getResources().getDimensionPixelSize(R.dimen.math_object_default_size);
-        setMathObject(null);    // Setting the MathObject to null will construct a MathObjectEmpty
+        expressionDefaultHeight = getResources().getDimensionPixelSize(R.dimen.math_object_default_size);
+        setExpression(null);    // Setting the Expression to null will construct a Empty
         initGestureDetector();
     }
     
@@ -88,47 +88,47 @@ public class MathView extends View
     {
         if(!(enabled = enable))
         {
-            setHoverState(mathObject, HoverState.NONE);
+            setHoverState(expression, HoverState.NONE);
             invalidate();
         }
     }
     
-    /** Set the top-level {@link MathObject}
-     * @param newMathObject The new value for the top-level {@link MathObject} */
-    public void setMathObject(MathObject newMathObject)
+    /** Set the top-level {@link Expression}
+     * @param newExpression The new value for the top-level {@link Expression} */
+    public void setExpression(Expression newExpression)
     {
         // Reset the translation
         resetScroll();
         
-        // Set the MathObject
-        setMathObjectHelper(newMathObject);
+        // Set the Expression
+        setExpressionHelper(newExpression);
         
         // Notify the listener of the change
-        mathObjectChanged();
+        expressionChanged();
     }
 
-    /** Set the top-level {@link MathObject} without sending an {@link OnMathObjectChangeListener} event.
+    /** Set the top-level {@link Expression} without sending an {@link OnExpressionChangeListener} event.
      * This also won't reset the scroll translation.
-     * @param newMathObject The new value for the top-level {@link MathObject} */
-    public void setMathObjectSilent(MathObject newMathObject)
+     * @param newExpression The new value for the top-level {@link Expression} */
+    public void setExpressionSilent(Expression newExpression)
     {
-        // Set the MathObject
-        setMathObjectHelper(newMathObject);
+        // Set the Expression
+        setExpressionHelper(newExpression);
         
         // Make sure the scroll translation is still bounded
         boundScrollTranslation();
     }
     
-    /** Private helper for {@link MathView#setMathObject(MathObject) setMathObject()} */
-    private void setMathObjectHelper(MathObject newMathObject)
+    /** Private helper for {@link MathView#setExpression(Expression) setExpression()} */
+    private void setExpressionHelper(Expression newExpression)
     {
-        // Remember the new MathObject, if it is null we create a MathObjectEmpty
-        if((mathObject = newMathObject) == null)
-            mathObject = new MathObjectEmpty();
+        // Remember the new Expression, if it is null we create a Empty
+        if((expression = newExpression) == null)
+            expression = new Empty();
         
-        // Set the default size and the level for the MathObject
-        mathObject.setDefaultHeight((int) mathObjectDefaultHeight);
-        mathObject.setLevel(0);
+        // Set the default size and the level for the Expression
+        expression.setDefaultHeight((int) expressionDefaultHeight);
+        expression.setLevel(0);
         
         // Invalidate the cache
         cache = null;
@@ -144,11 +144,11 @@ public class MathView extends View
         invalidate();
     }
     
-    /** Get the top-level {@link MathObject}
-     * @return The top-level {@link MathObject}
+    /** Get the top-level {@link Expression}
+     * @return The top-level {@link Expression}
      */
-    public MathObject getMathObject()
-    { return mathObject; }
+    public Expression getExpression()
+    { return expression; }
     
     /** Initialises the gesture detector */
     private void initGestureDetector()
@@ -163,7 +163,7 @@ public class MathView extends View
         /** Called when a keyboard with the given confirm listener should be shown
          * @param mathSymbol The initial value for the input (can be <tt>null</tt>)
          * @param listener The confirm listener */
-        public void showKeyboard(MathSymbol mathSymbol, FragmentKeyboard.OnConfirmListener listener);
+        public void showKeyboard(Symbol mathSymbol, FragmentKeyboard.OnConfirmListener listener);
     }
     
     /** The current {@link OnShowKeyboardListener} */
@@ -177,39 +177,39 @@ public class MathView extends View
     /** Asks the parent fragment to show the keyboard with the given confirm listener
      * @param mathSymbol The initial value for the input (can be <tt>null</tt>)
      * @param listener The confirm listener */
-    protected void showKeyboard(MathSymbol mathSymbol, FragmentKeyboard.OnConfirmListener listener)
+    protected void showKeyboard(Symbol mathSymbol, FragmentKeyboard.OnConfirmListener listener)
     {
         if(onShowKeyboardListener != null)
             onShowKeyboardListener.showKeyboard(mathSymbol, listener);
     }
     
-    /** A listener that can be implemented to be notified of when the {@link MathObject} changes */
-    public interface OnMathObjectChangeListener
+    /** A listener that can be implemented to be notified of when the {@link Expression} changes */
+    public interface OnExpressionChangeListener
     {
-        /** Called when the {@link MathObject} has changed
-         * @param mathObject The current {@link MathObject} */
-        public void changed(MathObject mathObject);
+        /** Called when the {@link Expression} has changed
+         * @param expression The current {@link Expression} */
+        public void changed(Expression expression);
     }
     
-    /** The current {@link OnMathObjectChangeListener} */
-    private OnMathObjectChangeListener onMathObjectChange = null;
+    /** The current {@link OnExpressionChangeListener} */
+    private OnExpressionChangeListener onExpressionChange = null;
     
-    /** Set the current {@link OnMathObjectChangeListener}
-     * @param listener The new {@link OnMathObjectChangeListener} */
-    public void setOnMathObjectChangeListener(OnMathObjectChangeListener listener)
-    { onMathObjectChange = listener; }
+    /** Set the current {@link OnExpressionChangeListener}
+     * @param listener The new {@link OnExpressionChangeListener} */
+    public void setOnExpressionChangeListener(OnExpressionChangeListener listener)
+    { onExpressionChange = listener; }
     
-    /** Call {@link OnMathObjectChangeListener#change() OnMathObjectChange.change()} on the current {@link OnMathObjectChangeListener} */
-    protected void mathObjectChanged()
+    /** Call {@link OnExpressionChangeListener#change() change()} on the current {@link OnExpressionChangeListener} */
+    protected void expressionChanged()
     {
-        if(onMathObjectChange != null)
-            onMathObjectChange.changed(mathObject);
+        if(onExpressionChange != null)
+            onExpressionChange.changed(expression);
     }
 
-    /** Recursively sets the given state for the given {@link MathObject} and all of its children
-     * @param mo The {@link MathObject} to set the given state for
-     * @param state The state that the {@link MathObject}s should be set to */
-    private void setHoverState(MathObject mo, HoverState state)
+    /** Recursively sets the given state for the given {@link Expression} and all of its children
+     * @param mo The {@link Expression} to set the given state for
+     * @param state The state that the {@link Expression}s should be set to */
+    private void setHoverState(Expression mo, HoverState state)
     {
         // Set the state
         mo.setState(state);
@@ -226,12 +226,12 @@ public class MathView extends View
     protected void onDraw(Canvas canvas)
     {
         // If the expression isn't in the cache yet, cache it
-        if(cacheEnabled && (cache == null || cachedForSize != mathObject.getDefaultHeight()))
+        if(cacheEnabled && (cache == null || cachedForSize != expression.getDefaultHeight()))
         {
-            Rect boundingBox = mathObject.getBoundingBox();
+            Rect boundingBox = expression.getBoundingBox();
             cache = Bitmap.createBitmap(boundingBox.width(), boundingBox.height(), Bitmap.Config.ARGB_8888);
-            mathObject.draw(new Canvas(cache));
-            cachedForSize = mathObject.getDefaultHeight();
+            expression.draw(new Canvas(cache));
+            cachedForSize = expression.getDefaultHeight();
         }
         
         // Save the canvas
@@ -245,22 +245,22 @@ public class MathView extends View
             canvas.drawBitmap(cache, (canvas.getWidth() - cache.getWidth()) / 2, (canvas.getHeight() - cache.getHeight()) / 2, cachePaint);
         else
         {
-            Rect boundingBox = mathObject.getBoundingBox();
+            Rect boundingBox = expression.getBoundingBox();
             canvas.translate((canvas.getWidth() - boundingBox.width()) / 2, (canvas.getHeight() - boundingBox.height()) / 2);
-            mathObject.draw(canvas);
+            expression.draw(canvas);
         }
         
         // Restore the canvas
         canvas.restore();
     }
     
-    /** Bounds the scrolling translation to make sure there is always a part of the current {@link MathObject} visible */
+    /** Bounds the scrolling translation to make sure there is always a part of the current {@link Expression} visible */
     private void boundScrollTranslation()
     {
-        // Get the bounding box of the MathObject
-        Rect boundingBox = mathObject.getBoundingBox();
+        // Get the bounding box of the Expression
+        Rect boundingBox = expression.getBoundingBox();
         
-        // The least size that should still be visible of the current MathObject
+        // The least size that should still be visible of the current Expression
         final int leastHorSize = Math.min(boundingBox.width() / 2, getResources().getDimensionPixelSize(R.dimen.math_object_default_size));
         final int leastVertSize = Math.min(boundingBox.height() / 2, getResources().getDimensionPixelSize(R.dimen.math_object_default_size));
         
@@ -300,14 +300,14 @@ public class MathView extends View
             // Determine click position
             Point clickPos = new Point((int) me.getX(), (int) me.getY());
             
-            // Determine how the canvas will be translated when drawing the current MathObject
-            Rect boundingBox = mathObject.getBoundingBox();
+            // Determine how the canvas will be translated when drawing the current Expression
+            Rect boundingBox = expression.getBoundingBox();
             boundingBox.offset(scrollTranslate.x, scrollTranslate.y);
             boundingBox.offset((getWidth() - boundingBox.width()) / 2, (getHeight() - boundingBox.height()) / 2);
             
             // Keep track of which objects still need to be checked
             ArrayDeque<HoverInformation> queue = new ArrayDeque<HoverInformation>();
-            queue.addLast(new HoverInformation(mathObject, boundingBox, null, 0));
+            queue.addLast(new HoverInformation(expression, boundingBox, null, 0));
             
             // Keep going until the queue is empty
             while(!queue.isEmpty())
@@ -315,31 +315,31 @@ public class MathView extends View
                 // Pop off an element of the queue
                 HoverInformation info = queue.pollFirst();
                 
-                // If the MathObject is a MathObjectEmpty or MathSymbol, we check if we clicked on it
-                if(info.mathObject instanceof MathObjectEmpty || info.mathObject instanceof MathSymbol)
+                // If the Expression is Empty or Symbol, we check if we clicked on it
+                if(info.expression instanceof Empty || info.expression instanceof Symbol)
                 {
                     // If we click inside the object, we're done looking
                     if(info.boundingBox.contains(clickPos.x, clickPos.y))
                     {
                         // Show the keyboard with the given confirm listener
-                        if(info.mathObject instanceof MathSymbol)
-                            showKeyboard((MathSymbol) info.mathObject, new MathObjectReplacer(info));
+                        if(info.expression instanceof Symbol)
+                            showKeyboard((Symbol) info.expression, new ExpressionReplacer(info));
                         else
-                            showKeyboard(null, new MathObjectReplacer(info));
+                            showKeyboard(null, new ExpressionReplacer(info));
                     }
                 }
                 else
                 {
                     // Add the children we click on to the queue
-                    for(int i = 0; i < info.mathObject.getChildCount(); ++i)
+                    for(int i = 0; i < info.expression.getChildCount(); ++i)
                     {
                         // Get the bounding box for the child
-                        Rect childBoundingBox = info.mathObject.getChildBoundingBox(i);
+                        Rect childBoundingBox = info.expression.getChildBoundingBox(i);
                         childBoundingBox.offset(info.boundingBox.left, info.boundingBox.top);
 
                         // Add the child to the queue if we click inside the child
                         if(childBoundingBox.contains(clickPos.x, clickPos.y))
-                            queue.addLast(new HoverInformation(info.mathObject.getChild(i), childBoundingBox, info.mathObject, i));
+                            queue.addLast(new HoverInformation(info.expression.getChild(i), childBoundingBox, info.expression, i));
                     }
                 }
             }
@@ -357,8 +357,8 @@ public class MathView extends View
             // The point we're the user is pressing
             Point aimPoint = new Point((int) me.getX(), (int) me.getY());
             
-            // Determine how the canvas will be translated when drawing the current MathObject
-            Rect boundingBox = mathObject.getBoundingBox();
+            // Determine how the canvas will be translated when drawing the current Expression
+            Rect boundingBox = expression.getBoundingBox();
             boundingBox.offset(scrollTranslate.x, scrollTranslate.y);
             boundingBox.offset((getWidth() - boundingBox.width()) / 2, (getHeight() - boundingBox.height()) / 2);
             
@@ -367,23 +367,23 @@ public class MathView extends View
                 return;
             
             // The hover information of the expression we're clicking
-            HoverInformation info = new HoverInformation(mathObject, boundingBox, null, 0);
+            HoverInformation info = new HoverInformation(expression, boundingBox, null, 0);
             
             // Keep going until we break
             while(true)
             {
                 // Check if we're clicking inside one of the children
                 boolean continueAfterLoop = false;
-                for(int i = 0; i < info.mathObject.getChildCount(); ++i)
+                for(int i = 0; i < info.expression.getChildCount(); ++i)
                 {
                     // Get the bounding box for the child
-                    Rect childBoundingBox = info.mathObject.getChildBoundingBox(i);
+                    Rect childBoundingBox = info.expression.getChildBoundingBox(i);
                     childBoundingBox.offset(info.boundingBox.left, info.boundingBox.top);
 
                     // If we clicked inside the child, we'll check that child
                     if(childBoundingBox.contains(aimPoint.x, aimPoint.y))
                     {
-                        info = new HoverInformation(info.mathObject.getChild(i), childBoundingBox, info.mathObject, i);
+                        info = new HoverInformation(info.expression.getChild(i), childBoundingBox, info.expression, i);
                         continueAfterLoop = true;
                         break;
                     }
@@ -391,7 +391,7 @@ public class MathView extends View
                 if(continueAfterLoop) continue;
                 
                 // Check if we're clicking on the operator
-                Rect[] operatorBoundingBoxes = info.mathObject.getOperatorBoundingBoxes();
+                Rect[] operatorBoundingBoxes = info.expression.getOperatorBoundingBoxes();
                 boolean breakAfterLoop = false;
                 for(int i = 0; i < operatorBoundingBoxes.length; ++i)
                 {
@@ -415,14 +415,14 @@ public class MathView extends View
             
             // If we've found a part we're clicking
             // Also, we can't delete an empty box
-            if(info != null && !(info.mathObject instanceof MathObjectEmpty))
+            if(info != null && !(info.expression instanceof Empty))
             {
                 // In case the target is a linear binary operation, we only want the operands directly next to it
-                // So we rearrange the MathObject tree to make that happen
-                freeMathObject(info);
+                // So we rearrange the Expression tree to make that happen
+                freeExpression(info);
                 
                 // Create a deep copy of the expression we're about to drag
-                MathObject copy = MathObjectDuplicator.deepCopy(info.mathObject);
+                Expression copy = ExpressionDuplicator.deepCopy(info.expression);
                 copy.setDefaultHeight(getResources().getDimensionPixelSize(R.dimen.math_object_drag_default_size));
 
                 // Start dragging the deletion object
@@ -433,17 +433,17 @@ public class MathView extends View
         }
     }
     
-    /** The default height of the MathObjects as a float */
-    private float mathObjectDefaultHeight = 0.0f;
+    /** The default height of the Expressions as a float */
+    private float expressionDefaultHeight = 0.0f;
     
     private class ScaleListener extends ScaleGestureDetector.SimpleOnScaleGestureListener
     {
         @Override
         public boolean onScale(ScaleGestureDetector detector)
         {
-            mathObjectDefaultHeight = Math.min(getResources().getDimensionPixelSize(R.dimen.math_object_max_default_size),
-                    Math.max(mathObjectDefaultHeight * detector.getScaleFactor(), getResources().getDimensionPixelSize(R.dimen.math_object_min_default_size)));
-            mathObject.setDefaultHeight((int) mathObjectDefaultHeight);
+            expressionDefaultHeight = Math.min(getResources().getDimensionPixelSize(R.dimen.math_object_max_default_size),
+                    Math.max(expressionDefaultHeight * detector.getScaleFactor(), getResources().getDimensionPixelSize(R.dimen.math_object_min_default_size)));
+            expression.setDefaultHeight((int) expressionDefaultHeight);
             invalidate();
             return true;
         }
@@ -485,35 +485,35 @@ public class MathView extends View
             case DragEvent.ACTION_DRAG_ENTERED:
             case DragEvent.ACTION_DRAG_LOCATION:
             {
-                // Calculate the coordinates of the top-left corner of the MathObject
-                Rect dragBoundingBox = mathShadow.getMathObjectBounding();
+                // Calculate the coordinates of the top-left corner of the Expression
+                Rect dragBoundingBox = mathShadow.getExpressionBounding();
                 dragBoundingBox.offset((int) event.getX(), (int) event.getY());
                 
                 // Show where we're hovering above
-                respondToDrag(mathShadow.getMathObject(), dragBoundingBox, false);
+                respondToDrag(mathShadow.getExpression(), dragBoundingBox, false);
                 invalidate();
             }
             return true;
             
             case DragEvent.ACTION_DRAG_EXITED:
-                setHoverState(mathObject, HoverState.NONE);
+                setHoverState(expression, HoverState.NONE);
                 invalidate();
             return true;
             
             case DragEvent.ACTION_DROP:
             {
-                // Calculate the coordinates of the top-left corner of the MathObject
-                Rect dragBoundingBox = mathShadow.getMathObjectBounding();
+                // Calculate the coordinates of the top-left corner of the Expression
+                Rect dragBoundingBox = mathShadow.getExpressionBounding();
                 dragBoundingBox.offset((int) event.getX(), (int) event.getY());
                 
                 // Show where we're hovering above
-                respondToDrag(mathShadow.getMathObject(), dragBoundingBox, true);
+                respondToDrag(mathShadow.getExpression(), dragBoundingBox, true);
                 invalidate();
             }
             return true;
 
             case DragEvent.ACTION_DRAG_ENDED:
-                setHoverState(mathObject, HoverState.NONE);
+                setHoverState(expression, HoverState.NONE);
                 cacheEnabled = true;
                 invalidate();
             return true;
@@ -521,33 +521,33 @@ public class MathView extends View
         return false;
     }
     
-    /** Holds information about the {@link MathObject} that's being dragged to */
+    /** Holds information about the {@link Expression} that's being dragged to */
     private static class HoverInformation
     {
         /** Constructor
-         * @param mathObject The {@link MathObject} we're hovering over 
-         * @param boundingBox The bounding box of {@link HoverInformation#mathObject mathObject}
-         * @param parent The parent of the {@link MathObject} we're hovering over (null if we're hovering over the root {@link MathObject})
-         * @param childIndex The child index of the {@link MathObject} we're hovering over (undefined if we're hovering over the root {@link MathObject})
+         * @param expression The {@link Expression} we're hovering over 
+         * @param boundingBox The bounding box of {@link HoverInformation#expression expression}
+         * @param parent The parent of the {@link Expression} we're hovering over (null if we're hovering over the root {@link Expression})
+         * @param childIndex The child index of the {@link Expression} we're hovering over (undefined if we're hovering over the root {@link Expression})
          */
-        public HoverInformation(MathObject mathObject, Rect boundingBox, MathObject parent, int childIndex)
+        public HoverInformation(Expression expression, Rect boundingBox, Expression parent, int childIndex)
         {
-            this.mathObject = mathObject;
+            this.expression = expression;
             this.boundingBox = boundingBox;
             this.parent = parent;
             this.childIndex = childIndex;
         }
         
-        /** The {@link MathObject} we're hovering over */
-        public MathObject mathObject = null;
+        /** The {@link Expression} we're hovering over */
+        public Expression expression = null;
         
-        /** The bounding box of {@link HoverInformation#mathObject mathObject} */
+        /** The bounding box of {@link HoverInformation#expression expression} */
         public Rect boundingBox = null;
         
-        /** The parent of the {@link MathObject} we're hovering over (null if we're hovering over the root {@link MathObject}) */
-        public MathObject parent = null;
+        /** The parent of the {@link Expression} we're hovering over (null if we're hovering over the root {@link Expression}) */
+        public Expression parent = null;
         
-        /** The child index of the {@link MathObject} we're hovering over (undefined if we're hovering over the root {@link MathObject}) */
+        /** The child index of the {@link Expression} we're hovering over (undefined if we're hovering over the root {@link Expression}) */
         public int childIndex = 0;
     }
 
@@ -561,20 +561,20 @@ public class MathView extends View
         return (r.centerX() - p.x) * (r.centerX() - p.x) + (r.centerY() - p.y) * (r.centerY() - p.y);
     }
     
-    /** Reorders the expression tree so that the {@link MathObject} in <tt>info.mathObject</tt> becomes free.
+    /** Reorders the expression tree so that the {@link Expression} in <tt>info.expression</tt> becomes free.
      * That means that if it's a binary linear operation, only the operands displayed directly next to it will be its children.
-     * @param info The information about the {@link MathObject} to free (note that values in this object may be changed as well) */
-    private void freeMathObject(HoverInformation info)
+     * @param info The information about the {@link Expression} to free (note that values in this object may be changed as well) */
+    private void freeExpression(HoverInformation info)
     {
-        if(!(info.mathObject instanceof MathBinaryOperationLinear)) return;
+        if(!(info.expression instanceof Linear)) return;
 
         // The linear binary operation we're going to modify
-        MathBinaryOperationLinear binOp = (MathBinaryOperationLinear) info.mathObject;
+        Linear binOp = (Linear) info.expression;
         
         // Get the right operand
-        MathObject operand = binOp.getRight();
-        MathObject newParent = null;
-        while(operand instanceof MathBinaryOperationLinear)
+        Expression operand = binOp.getRight();
+        Expression newParent = null;
+        while(operand instanceof Linear)
         {
             newParent = operand;
             operand = operand.getChild(0);
@@ -583,12 +583,12 @@ public class MathView extends View
         // Change the structure of the expression tree (if necessary)
         if(newParent != null)
         {
-            MathObject newSuperParent = binOp.getRight();
+            Expression newSuperParent = binOp.getRight();
             binOp.setRight(operand);
             newParent.setChild(0, binOp);
             
             if(info.parent == null)
-                setMathObjectHelper(newSuperParent);
+                setExpressionHelper(newSuperParent);
             else
                 ParenthesesHelper.makeChild(info.parent, newSuperParent, info.childIndex);
             
@@ -599,7 +599,7 @@ public class MathView extends View
         // Now we do the same thing for the left operand
         operand = binOp.getLeft();
         newParent = null;
-        while(operand instanceof MathBinaryOperationLinear)
+        while(operand instanceof Linear)
         {
             newParent = operand;
             operand = operand.getChild(1);
@@ -608,12 +608,12 @@ public class MathView extends View
         // Change the structure of the expression tree (if necessary)
         if(newParent != null)
         {
-            MathObject newSuperParent = binOp.getLeft();
+            Expression newSuperParent = binOp.getLeft();
             binOp.setLeft(operand);
             newParent.setChild(1, binOp);
             
             if(info.parent == null)
-                setMathObjectHelper(newSuperParent);
+                setExpressionHelper(newSuperParent);
             else
                 ParenthesesHelper.makeChild(info.parent, newSuperParent, info.childIndex);
             
@@ -622,37 +622,37 @@ public class MathView extends View
         }
     }
 
-    /** Responds to a {@link MathObject} that is being dragged over this view.
-     * It can either respond by lighting up the right part of the current {@link MathObject} (i.e. <tt>dropped == false</tt>).
-     * Or it can respond by inserting the dropped {@link MathObject} into the current {@link MathObject} (i.e. <tt>dropped == true</tt>).
-     * @param dragMathObject The {@link MathObject} that is being dragged
-     * @param dragBoundingBox The bounding box of the {@link MathObject} that is being dragged
-     * @param dropped Whether or not the {@link MathObject} is being dropped
+    /** Responds to a {@link Expression} that is being dragged over this view.
+     * It can either respond by lighting up the right part of the current {@link Expression} (i.e. <tt>dropped == false</tt>).
+     * Or it can respond by inserting the dropped {@link Expression} into the current {@link Expression} (i.e. <tt>dropped == true</tt>).
+     * @param dragExpr The {@link Expression} that is being dragged
+     * @param dragBoundingBox The bounding box of the {@link Expression} that is being dragged
+     * @param dropped Whether or not the {@link Expression} is being dropped
      */
-    private void respondToDrag(MathObject dragMathObject, Rect dragBoundingBox, boolean dropped)
+    private void respondToDrag(Expression dragExpr, Rect dragBoundingBox, boolean dropped)
     {
-        // Reset the state of the current MathObject and all of its descendants
-        setHoverState(mathObject, HoverState.NONE);
+        // Reset the state of the current Expression and all of its descendants
+        setHoverState(expression, HoverState.NONE);
         
-        // The aiming point of the MathObject that is being dragged (the main aiming point)
+        // The aiming point of the Expression that is being dragged (the main aiming point)
         Point aimPoint = new Point(dragBoundingBox.centerX(), dragBoundingBox.centerY());
         
-        // Determine the aiming points of the children of the MathObject that is being dragged
+        // Determine the aiming points of the children of the Expression that is being dragged
         // But only if they are empty children (otherwise they aren't interesting, so we set their aiming points to null)
-        Point[] childAimPoints = new Point[dragMathObject.getChildCount()];
+        Point[] childAimPoints = new Point[dragExpr.getChildCount()];
         for(int i = 0; i < childAimPoints.length; ++i)
         {
-            if(dragMathObject.getChild(i) instanceof MathObjectEmpty)
+            if(dragExpr.getChild(i) instanceof Empty)
             {
-                Rect rect = dragMathObject.getChildBoundingBox(i);
+                Rect rect = dragExpr.getChildBoundingBox(i);
                 childAimPoints[i] = new Point(dragBoundingBox.left + rect.centerX(), dragBoundingBox.top + rect.centerY());
             }
             else
                 childAimPoints[i] = null;
         }
         
-        // Determine how the canvas will be translated when drawing the current MathObject
-        Rect boundingBox = mathObject.getBoundingBox();
+        // Determine how the canvas will be translated when drawing the current Expression
+        Rect boundingBox = expression.getBoundingBox();
         boundingBox.offset(scrollTranslate.x, scrollTranslate.y);
         boundingBox.offset((getWidth() - boundingBox.width()) / 2, (getHeight() - boundingBox.height()) / 2);
         
@@ -661,13 +661,13 @@ public class MathView extends View
             return;
         
         // Some variables that will keep track of where we're hovering above
-        int sourceChild = -1;                   // The source child that's causing the hover (-1 means the complete mathObject)
+        int sourceChild = -1;                   // The source child that's causing the hover (-1 means the complete expression)
         int dst = -1;                           // The best distance (squared) we've found so far (-1 means that no hover has been found yet)
-        HoverInformation currHover = null;      // The hover information of the MathObject we're currently hovering over
+        HoverInformation currHover = null;      // The hover information of the Expression we're currently hovering over
         
         // Keep track of which objects still need to be checked
         ArrayDeque<HoverInformation> queue = new ArrayDeque<HoverInformation>();
-        queue.addLast(new HoverInformation(mathObject, boundingBox, null, 0));
+        queue.addLast(new HoverInformation(expression, boundingBox, null, 0));
         
         // Keep going until the queue is empty
         while(!queue.isEmpty())
@@ -675,8 +675,8 @@ public class MathView extends View
             // Pop off an element of the queue
             HoverInformation info = queue.pollFirst();
             
-            // If the MathObject is a MathObjectEmpty, we check the distance to the main aiming point
-            if(info.mathObject instanceof MathObjectEmpty)
+            // If the Expression is Empty, we check the distance to the main aiming point
+            if(info.expression instanceof Empty)
             {
                 // If the aim point is not in the rectangle at all, we've nothing to do
                 if(!info.boundingBox.contains(aimPoint.x, aimPoint.y))
@@ -694,7 +694,7 @@ public class MathView extends View
             else
             {
                 // Determine if we're aiming at this object itself
-                Rect[] operatorBounds = info.mathObject.getOperatorBoundingBoxes();
+                Rect[] operatorBounds = info.expression.getOperatorBoundingBoxes();
                 for(Rect rect : operatorBounds)
                     rect.offset(info.boundingBox.left, info.boundingBox.top);
                 for(int i = 0; i < childAimPoints.length; ++i)
@@ -721,10 +721,10 @@ public class MathView extends View
                 }
                 
                 // Add the children we intersect with to the queue
-                for(int i = 0; i < info.mathObject.getChildCount(); ++i)
+                for(int i = 0; i < info.expression.getChildCount(); ++i)
                 {
                     // Get the bounding box for the child
-                    Rect childBoundingBox = info.mathObject.getChildBoundingBox(i);
+                    Rect childBoundingBox = info.expression.getChildBoundingBox(i);
                     childBoundingBox.offset(info.boundingBox.left, info.boundingBox.top);
                     
                     // If we don't intersect with the bounding box at all, we're not interested
@@ -732,19 +732,19 @@ public class MathView extends View
                         continue;
                     
                     // Add the child to the queue
-                    queue.addLast(new HoverInformation(info.mathObject.getChild(i), childBoundingBox, info.mathObject, i));
+                    queue.addLast(new HoverInformation(info.expression.getChild(i), childBoundingBox, info.expression, i));
                 }
             }
         }
         
-        // If we've found a MathObject we're hovering over, do the right thing with it
+        // If we've found a Expression we're hovering over, do the right thing with it
         if(currHover != null)
         {
             // If we're not dropping, just light up the part we're hovering over
-            // Otherwise we insert the MathObject that's being dragged at the right point in current MathObject
+            // Otherwise we insert the Expression that's being dragged at the right point in current Expression
             if(!dropped)
             {
-                currHover.mathObject.setState(HoverState.HOVER);
+                currHover.expression.setState(HoverState.HOVER);
                 
                 // Invalidate the cache
                 cache = null;
@@ -755,32 +755,32 @@ public class MathView extends View
                 if(sourceChild == -1)
                 {
                     if(currHover.parent == null)
-                        setMathObjectHelper(dragMathObject);
+                        setExpressionHelper(dragExpr);
                     else
-                        ParenthesesHelper.makeChild(currHover.parent, dragMathObject, currHover.childIndex);
+                        ParenthesesHelper.makeChild(currHover.parent, dragExpr, currHover.childIndex);
                 }
                 else
                 {
                     // In case the target is a linear binary operation, we only want the operands directly next to it
-                    // So we rearrange the MathObject tree to make that happen
-                    freeMathObject(currHover);
+                    // So we rearrange the Expression tree to make that happen
+                    freeExpression(currHover);
                     
-                    // Insert the MathObject into to MathObject tree
-                    ParenthesesHelper.makeChild(dragMathObject, currHover.mathObject, sourceChild);
+                    // Insert the Expression into to Expression tree
+                    ParenthesesHelper.makeChild(dragExpr, currHover.expression, sourceChild);
                     if(currHover.parent == null)
-                        setMathObjectHelper(dragMathObject);
+                        setExpressionHelper(dragExpr);
                     else
-                        ParenthesesHelper.makeChild(currHover.parent, dragMathObject, currHover.childIndex);
+                        ParenthesesHelper.makeChild(currHover.parent, dragExpr, currHover.childIndex);
                 }
                 
-                // Make sure the MathObject and all of its descendants have the right state
-                setHoverState(mathObject, HoverState.NONE);
+                // Make sure the Expression and all of its descendants have the right state
+                setHoverState(expression, HoverState.NONE);
                 
-                // Make sure every MathObject has the right level
-                mathObject.setLevel(0);
+                // Make sure every Expression has the right level
+                expression.setLevel(0);
                 
                 // Notify the listener of the change
-                mathObjectChanged();
+                expressionChanged();
             }
         }
     }
@@ -788,59 +788,59 @@ public class MathView extends View
     /** Converts the given {@link FragmentKeyboard.OnConfirmListener} to a bundle, given that it was created by this class */
     public Bundle keyboardListenerToBundle(FragmentKeyboard.OnConfirmListener listener)
     {
-        if(!(listener instanceof MathObjectReplacer))
+        if(!(listener instanceof ExpressionReplacer))
             return null;
         
-        return ((MathObjectReplacer) listener).toBundle(mathObject);
+        return ((ExpressionReplacer) listener).toBundle(expression);
     }
     
-    /** Creates a {@link MathObjectReplacer} from the given bundle
-     * @param bundle The bundle to create the {@link MathObjectReplacer} from */
+    /** Creates a {@link ExpressionReplacer} from the given bundle
+     * @param bundle The bundle to create the {@link ExpressionReplacer} from */
     public FragmentKeyboard.OnConfirmListener keyboardListenerFromBundle(Bundle bundle)
     {
         // Get the path to the clicked part
-        ArrayList<Integer> path = bundle.getIntegerArrayList(MathObjectReplacer.BUNDLE_MATH_OBJECT_INFO);
+        ArrayList<Integer> path = bundle.getIntegerArrayList(ExpressionReplacer.BUNDLE_MATH_OBJECT_INFO);
         
         // If the path is empty, it was the root
         if(path.isEmpty())
-            return new MathObjectReplacer(new HoverInformation(mathObject, null, null, 0));
+            return new ExpressionReplacer(new HoverInformation(expression, null, null, 0));
         // If it wasn't we follow the path to create an instance of HoverInformation
         else
         {
-            HoverInformation hoverInformation = new HoverInformation(mathObject.getChild(path.get(0)), null, mathObject, path.get(0));
+            HoverInformation hoverInformation = new HoverInformation(expression.getChild(path.get(0)), null, expression, path.get(0));
             for(int i = 1; i < path.size(); ++i)
             {
                 hoverInformation.childIndex = path.get(i);
-                hoverInformation.parent = hoverInformation.mathObject;
-                hoverInformation.mathObject = hoverInformation.mathObject.getChild(path.get(i));
+                hoverInformation.parent = hoverInformation.expression;
+                hoverInformation.expression = hoverInformation.expression.getChild(path.get(i));
             }
-            return new MathObjectReplacer(hoverInformation);
+            return new ExpressionReplacer(hoverInformation);
         }
     }
     
-    /** Replaces an {@link MathObject} with the {@link MathSymbol} that the keyboard returns */
-    private class MathObjectReplacer implements FragmentKeyboard.OnConfirmListener
+    /** Replaces an {@link Expression} with the {@link Symbol} that the keyboard returns */
+    private class ExpressionReplacer implements FragmentKeyboard.OnConfirmListener
     {
-        /** The info about the {@link MathObject} that is to replaced */
-        private HoverInformation mathObjectInfo = null;
+        /** The info about the {@link Expression} that is to replaced */
+        private HoverInformation expressionInfo = null;
         
         /** Constructs the replacer with the given info
-         * @param info The info about the {@link MathObject} that is to replaced */
-        public MathObjectReplacer(HoverInformation info)
+         * @param info The info about the {@link Expression} that is to replaced */
+        public ExpressionReplacer(HoverInformation info)
         {
-            mathObjectInfo = info;
+            expressionInfo = info;
         }
 
         @Override
-        public void confirmed(MathSymbol mathSymbol)
+        public void confirmed(Symbol mathSymbol)
         {
             // Place the symbol
-            if(mathObjectInfo.parent == null)
-                setMathObjectHelper(mathSymbol);
+            if(expressionInfo.parent == null)
+                setExpressionHelper(mathSymbol);
             else
             {
-                mathObjectInfo.parent.setChild(mathObjectInfo.childIndex, mathSymbol);
-                ParenthesesHelper.setParentheses(mathObject);
+                expressionInfo.parent.setChild(expressionInfo.childIndex, mathSymbol);
+                ParenthesesHelper.setParentheses(expression);
             }
             
             // Invalidate cache and redraw
@@ -848,23 +848,23 @@ public class MathView extends View
             invalidate();
             
             // Notify the listener of the change
-            mathObjectChanged();
+            expressionChanged();
         }
         
-        /** An integer ArrayList in the state bundle that contains the path (in child numbers) to the child in mathObjectInfo */
+        /** An integer ArrayList in the state bundle that contains the path (in child numbers) to the child in expressionInfo */
         public static final String BUNDLE_MATH_OBJECT_INFO = "math_object_info";
         
-        /** Returns the information about this {@link MathObjectReplacer} as a bundle
-         * @param root The root {@link MathObject} */
-        public Bundle toBundle(MathObject root)
+        /** Returns the information about this {@link ExpressionReplacer} as a bundle
+         * @param root The root {@link Expression} */
+        public Bundle toBundle(Expression root)
         {
             // The path to the clicked part
             ArrayList<Integer> path = new ArrayList<Integer>();
             
             // Only create a path if the clicked part wasn't the root
-            if(mathObjectInfo.parent != null)
+            if(expressionInfo.parent != null)
             {
-                if(find(root, mathObjectInfo.mathObject, path))
+                if(find(root, expressionInfo.expression, path))
                     Collections.reverse(path);
             }
             
@@ -874,12 +874,12 @@ public class MathView extends View
             return out;
         }
         
-        /** Appends the index of the child that contains (or is) the given {@link MathObject} to the given list
+        /** Appends the index of the child that contains (or is) the given {@link Expression} to the given list
          * @param parent The parent to search in
-         * @param findMe The {@link MathObject} to search for
+         * @param findMe The {@link Expression} to search for
          * @param list The list to append the index to
          * @return <tt>true</tt> if <tt>findMe</tt> was found, <tt>false</tt> otherwise */
-        private boolean find(MathObject parent, MathObject findMe, ArrayList<Integer> list)
+        private boolean find(Expression parent, Expression findMe, ArrayList<Integer> list)
         {
             // Loop through all children
             for(int i = 0; i < parent.getChildCount(); ++i)
@@ -896,14 +896,14 @@ public class MathView extends View
         }
     }
     
-    /** Removes the {@link MathObject} that's described in a {@link HoverInformation} */
+    /** Removes the {@link Expression} that's described in a {@link HoverInformation} */
     private class ExpressionRemover implements MathDeleteShadow.OnDeleteConfirmListener
     {
-        /** The info about the {@link MathObject} that is to removed */
+        /** The info about the {@link Expression} that is to removed */
         private HoverInformation info = null;
         
         /** Constructs the remover with the given info
-         * @param i The info about the {@link MathObject} that is to be removed */
+         * @param i The info about the {@link Expression} that is to be removed */
         public ExpressionRemover(HoverInformation i)
         { info = i; }
 
@@ -912,11 +912,11 @@ public class MathView extends View
         {
             // Remove the expression
             if(info.parent == null)
-                setMathObjectHelper(null);
+                setExpressionHelper(null);
             else
             {
                 info.parent.setChild(info.childIndex, null);
-                ParenthesesHelper.setParentheses(mathObject);
+                ParenthesesHelper.setParentheses(expression);
             }
 
             // Invalidate cache and redraw
@@ -924,7 +924,7 @@ public class MathView extends View
             invalidate();
             
             // Notify the listener of the change
-            mathObjectChanged();
+            expressionChanged();
         }
     }
 

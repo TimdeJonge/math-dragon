@@ -20,10 +20,10 @@ import org.teaminfty.math_dragon.R;
 import org.teaminfty.math_dragon.exceptions.ParseException;
 import org.teaminfty.math_dragon.view.MathView;
 import org.teaminfty.math_dragon.view.fragments.FragmentKeyboard.OnConfirmListener;
-import org.teaminfty.math_dragon.view.math.MathFactory;
-import org.teaminfty.math_dragon.view.math.MathSymbol;
-import org.teaminfty.math_dragon.view.math.MathObject;
-import org.teaminfty.math_dragon.view.math.MathObjectEmpty;
+import org.teaminfty.math_dragon.view.math.ExpressionXMLReader;
+import org.teaminfty.math_dragon.view.math.Symbol;
+import org.teaminfty.math_dragon.view.math.Expression;
+import org.teaminfty.math_dragon.view.math.Empty;
 import org.w3c.dom.Document;
 import org.xml.sax.SAXException;
 
@@ -54,7 +54,10 @@ public class FragmentMainScreen extends Fragment
         // Listen for events from the MathView
         mathView = (MathView) view.findViewById(R.id.mathView);
         mathView.setOnShowKeyboardListener(new ShowKeyboardListener());
-        mathView.setOnMathObjectChangeListener(new MathObjectChangeListener());
+        mathView.setOnExpressionChangeListener(new MathObjectChangeListener());
+        
+        // Disable the evaluate buttons by default
+        enableDisableEvalButtons(view, mathView.getExpression());
         
         if(savedInstanceState != null)
         {
@@ -80,7 +83,10 @@ public class FragmentMainScreen extends Fragment
             try
             {
                 historyPos = Math.min(history.size() - 1, savedInstanceState.getInt(BUNDLE_HISTORY_POS));
-                mathView.setMathObjectSilent(MathFactory.fromXML(history.get(historyPos)));
+                mathView.setExpressionSilent(ExpressionXMLReader.fromXML(history.get(historyPos)));
+                
+                // Enable the evaluate buttons (if necessary)
+                enableDisableEvalButtons(view, mathView.getExpression());
             }
             catch(ParseException e)
             {
@@ -100,8 +106,8 @@ public class FragmentMainScreen extends Fragment
             // Set the first history entry (i.e. an empty element)
             try
             {
-                Document doc = MathObject.createXMLDocument();
-                mathView.getMathObject().writeToXML(doc, doc.getDocumentElement());
+                Document doc = Expression.createXMLDocument();
+                mathView.getExpression().writeToXML(doc, doc.getDocumentElement());
                 history.add(doc);
                 historyPos = history.size() - 1; 
             }
@@ -168,20 +174,20 @@ public class FragmentMainScreen extends Fragment
     /** Clears the current formula */
     public void clear()
     {
-        if(mathView.getMathObject() instanceof MathObjectEmpty)
+        if(mathView.getExpression() instanceof Empty)
             mathView.resetScroll();
         else
         {
-            mathView.setMathObject(null);
+            mathView.setExpression(null);
             mathView.invalidate();
         }
     }
     
-    /** Returns the current {@link MathObject}
-     * @return The current {@link MathObject} */
-    public MathObject getMathObject()
+    /** Returns the current {@link Expression}
+     * @return The current {@link Expression} */
+    public Expression getMathObject()
     {
-        return mathView.getMathObject();
+        return mathView.getExpression();
     }
     
     /** Enables or disables the undo/redo buttons according to the current position in the history */
@@ -202,8 +208,11 @@ public class FragmentMainScreen extends Fragment
         // Get the MathObject at the given history position
         try
         {
-            mathView.setMathObjectSilent(MathFactory.fromXML(history.get(pos)));
+            mathView.setExpressionSilent(ExpressionXMLReader.fromXML(history.get(pos)));
             historyPos = pos;
+
+            // Enable / disable the evaluate buttons
+            enableDisableEvalButtons(getView(), mathView.getExpression());
         }
         catch(ParseException e)
         {
@@ -223,6 +232,20 @@ public class FragmentMainScreen extends Fragment
     public void redo()
     { goToHistoryPos(historyPos + 1); }
     
+    /** Enables / disables the evaluate, approximate and Wolfram|Alpha buttons according to the current {@link Expression}
+     * @param view The root view containing the buttons
+     * @param expr The {@link Expression} that determines whether the buttons should be enabled or disabled */
+    private void enableDisableEvalButtons(View view, Expression expr)
+    {
+        // Whether or not the expression is completed
+        final boolean isCompleted = expr.isCompleted();
+        
+        // Enable / disable the buttons
+        view.findViewById(R.id.btn_wolfram).setEnabled(isCompleted);
+        view.findViewById(R.id.btn_approximate).setEnabled(isCompleted);
+        view.findViewById(R.id.btn_evaluate).setEnabled(isCompleted);
+    }
+    
     /** The tag of the keyboard fragment */
     private static final String KEYBOARD_TAG = "keyboard";
     
@@ -230,7 +253,7 @@ public class FragmentMainScreen extends Fragment
     private class ShowKeyboardListener implements MathView.OnShowKeyboardListener
     {
         @Override
-        public void showKeyboard(MathSymbol mathConstant, OnConfirmListener listener)
+        public void showKeyboard(Symbol mathConstant, OnConfirmListener listener)
         {
             // If a keyboard is already shown, stop here
             if(getFragmentManager().findFragmentByTag(KEYBOARD_TAG) != null)
@@ -249,11 +272,14 @@ public class FragmentMainScreen extends Fragment
     }
     
     /** We'll want to listen for MathObject change events */
-    private class MathObjectChangeListener implements MathView.OnMathObjectChangeListener
+    private class MathObjectChangeListener implements MathView.OnExpressionChangeListener
     {
         @Override
-        public void changed(MathObject mathObject)
+        public void changed(Expression expression)
         {
+            // Enable / disable the evaluate buttons
+            enableDisableEvalButtons(getView(), expression);
+            
             // Remove the history from the current position
             if(historyPos + 1 < history.size())
                 history.subList(historyPos + 1, history.size()).clear();
@@ -261,8 +287,8 @@ public class FragmentMainScreen extends Fragment
             // Add the current MathObject to the history
             try
             {
-                Document doc = MathObject.createXMLDocument();
-                mathObject.writeToXML(doc, doc.getDocumentElement());
+                Document doc = Expression.createXMLDocument();
+                expression.writeToXML(doc, doc.getDocumentElement());
                 history.add(doc);
                 historyPos = history.size() - 1; 
             }
