@@ -15,6 +15,7 @@ import android.view.Window;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.ListView;
 
 public class FragmentSaveLoad extends DialogFragment {
@@ -30,13 +31,13 @@ public class FragmentSaveLoad extends DialogFragment {
         Button button = (Button) view.findViewById(R.id.buttonSave);
         button.setOnClickListener(new OnSaveClickListener());
         ListView listView = (ListView) view.findViewById(R.id.listViewLoad);
-        final ArrayList<Formula> formulaList = new ArrayList<Formula>();
-        formulaList = getAllFormulas();
-        String[] values = { "Formule 1", "Formule 2", "Formule 3", "", "", "", "", "", "", "", ""};
+      
         final ArrayList<String> list = new ArrayList<String>();
-        for (int i = 0; i < values.length; ++i) {
-          //list.add(values[i]);
-        	list.add("Formule" + Integer.toString(i));
+
+        FormulaDatabase formulaDatabase = new FormulaDatabase(getActivity());
+        //formulaDatabase.saveFormula(1, "ABC-formule", null);
+        for (Formula formula : formulaDatabase.getAllFormulas()){
+        	list.add(formula.name);
         }
         
         final ArrayAdapter<String> adapter = new ArrayAdapter<String>(view.getContext(), android.R.layout.simple_list_item_1, list);
@@ -60,11 +61,11 @@ public class FragmentSaveLoad extends DialogFragment {
         @Override
         public void onClick(View btn)
         { 
+        	//FormulaDatabase formulaDatabase = new FormulaDatabase(getActivity());
+          	//EditText editText = (EditText) btn.findViewById(R.id.editTextSave);
         	// TODO actually save the given equation
         	dismiss(); }
     }
-	public FragmentSaveLoad() {
-		// TODO Auto-generated constructor stub
-	}
+
 
 }
