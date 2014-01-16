@@ -5,6 +5,7 @@ import org.matheclipse.core.expression.F;
 import org.matheclipse.core.interfaces.IExpr;
 import org.teaminfty.math_dragon.exceptions.EmptyChildException;
 import org.teaminfty.math_dragon.exceptions.MathException;
+import org.teaminfty.math_dragon.model.Database;
 import org.teaminfty.math_dragon.model.EvalHelper;
 import org.teaminfty.math_dragon.model.ModelHelper;
 import org.teaminfty.math_dragon.model.ParenthesesHelper;
@@ -41,6 +42,9 @@ public class MainActivity extends Activity implements FragmentOperationsSource.C
         {
             // Simply do a simple (yet beautiful :D) calculation to make the system load Symja
             EvalEngine.eval(F.Plus(F.ZZ(1), F.Power(F.E, F.Times(F.Pi, F.I))));
+            
+            // Solve an integral to load that module
+            EvalEngine.eval(F.Integrate(F.x, F.x));
             
             // Return null (return value won't be used)
             return null;
@@ -157,6 +161,11 @@ public class MainActivity extends Activity implements FragmentOperationsSource.C
     {
         try
         {
+            // Load the substitutions
+            Database db = new Database(this);
+            EvalHelper.substitutions = db.getAllSubstitutions();
+            db.close();
+            
             // Calculate the answer
             FragmentMainScreen fragmentMainScreen = (FragmentMainScreen) getFragmentManager().findFragmentById(R.id.fragmentMainScreen);
             IExpr result = EvalEngine.eval( EvalHelper.eval(fragmentMainScreen.getMathObject()) );
@@ -183,10 +192,14 @@ public class MainActivity extends Activity implements FragmentOperationsSource.C
     {
         try
         {
+            // Load the substitutions
+            Database db = new Database(this);
+            EvalHelper.substitutions = db.getAllSubstitutions();
+            db.close();
+            
             // Calculate the answer
             FragmentMainScreen fragmentMainScreen = (FragmentMainScreen) getFragmentManager().findFragmentById(R.id.fragmentMainScreen);
-            IExpr result = EvalEngine.eval( EvalHelper.eval(fragmentMainScreen.getMathObject()) );
-            // TODO Approximate the result
+            IExpr result = F.evaln( EvalHelper.eval(fragmentMainScreen.getMathObject()) );
 
             // Create an evaluation fragment and show the result
             FragmentEvaluation fragmentEvaluation = new FragmentEvaluation();

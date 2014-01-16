@@ -49,21 +49,15 @@ public class FragmentKeyboard extends DialogFragment
             mathSymbolEditor.fromBundle(savedInstanceState.getBundle(BUNDLE_MATH_SYMBOL_EDITOR_STATE));
 		
     	// Acquire access to all buttons
-    	final Button button1 =  (Button) myFragmentView.findViewById(R.id.keyboardButton1);
-    	final Button button2 =  (Button) myFragmentView.findViewById(R.id.keyboardButton2);
-    	final Button button3 =  (Button) myFragmentView.findViewById(R.id.keyboardButton3);
-    	final Button button4 =  (Button) myFragmentView.findViewById(R.id.keyboardButton4);
-    	final Button button5 =  (Button) myFragmentView.findViewById(R.id.keyboardButton5);
-    	final Button button6 =  (Button) myFragmentView.findViewById(R.id.keyboardButton6);
-    	final Button button7 =  (Button) myFragmentView.findViewById(R.id.keyboardButton7);
-    	final Button button8 =  (Button) myFragmentView.findViewById(R.id.keyboardButton8);
-    	final Button button9 =  (Button) myFragmentView.findViewById(R.id.keyboardButton9);
-    	final Button button0 =  (Button) myFragmentView.findViewById(R.id.keyboardButton0);
+        final Button numButtons[] = new Button[10];
+        for(int i = 0; i <= 9; ++i)
+            numButtons[i] = (Button) myFragmentView.findViewWithTag("keyboardButton" + Integer.toString(i));
     	final ImageButton buttonClr = (ImageButton) myFragmentView.findViewById(R.id.keyboardButtonClear);
     	final ImageButton buttonDel = (ImageButton) myFragmentView.findViewById(R.id.keyboardButtonDelete);
         final ImageButton buttonCancel = (ImageButton) myFragmentView.findViewById(R.id.keyboardButtonCancel);
     	final ImageButton buttonOK  = (ImageButton) myFragmentView.findViewById(R.id.keyboardButtonConfirm);
     	final Button buttonNegate = (Button) myFragmentView.findViewById(R.id.keyboardButtonNegate);
+        final Button buttonDot = (Button) myFragmentView.findViewById(R.id.keyboardButtonDot);
         final ToggleButton buttonPi = (ToggleButton) myFragmentView.findViewById(R.id.keyboardButtonPi);
         final ToggleButton buttonE  = (ToggleButton) myFragmentView.findViewById(R.id.keyboardButtonE);
         final ToggleButton buttonI  = (ToggleButton) myFragmentView.findViewById(R.id.keyboardButtonI);
@@ -80,16 +74,8 @@ public class FragmentKeyboard extends DialogFragment
         final ButtonVarOnClickListener buttonVarOnClickListener = new ButtonVarOnClickListener();
     	
     	// Attach the OnClicklisteners to the buttons
-    	button1.setOnClickListener(buttonNumberOnClickListener);
-    	button2.setOnClickListener(buttonNumberOnClickListener);
-    	button3.setOnClickListener(buttonNumberOnClickListener);
-    	button4.setOnClickListener(buttonNumberOnClickListener);
-    	button5.setOnClickListener(buttonNumberOnClickListener);
-    	button6.setOnClickListener(buttonNumberOnClickListener);
-    	button7.setOnClickListener(buttonNumberOnClickListener);
-    	button8.setOnClickListener(buttonNumberOnClickListener);
-    	button9.setOnClickListener(buttonNumberOnClickListener);
-    	button0.setOnClickListener(buttonNumberOnClickListener);
+        for(int i = 0; i < numButtons.length; ++i)
+            numButtons[i].setOnClickListener(buttonNumberOnClickListener);
     	buttonPi.setOnClickListener(buttonSymbolOnClickListener);
     	buttonE.setOnClickListener(buttonSymbolOnClickListener);
     	buttonI.setOnClickListener(buttonSymbolOnClickListener);
@@ -98,6 +84,7 @@ public class FragmentKeyboard extends DialogFragment
         buttonCancel.setOnClickListener(new ButtonCancelOnClickListener());
     	buttonOK.setOnClickListener(new ButtonOkOnClickListener());
     	buttonNegate.setOnClickListener(new ButtonNegateOnClickListener());
+    	buttonDot.setOnClickListener(new ButtonDotOnClickListener());
     	buttonTabNumpad.setOnClickListener(buttonTabOnClickListener);
     	buttonTabVariables.setOnClickListener(buttonTabOnClickListener);
     	buttonX.setOnClickListener(buttonVarOnClickListener);
@@ -258,6 +245,7 @@ public class FragmentKeyboard extends DialogFragment
         final ToggleButton buttonX  = (ToggleButton) view.findViewById(R.id.keyboardButtonX);
         final ToggleButton buttonY  = (ToggleButton) view.findViewById(R.id.keyboardButtonY);
         final ToggleButton buttonZ  = (ToggleButton) view.findViewById(R.id.keyboardButtonZ);
+        final Button buttonDot = (Button) view.findViewById(R.id.keyboardButtonDot);
         
         // Uncheck all buttons
         buttonPi.setChecked(false);
@@ -294,6 +282,15 @@ public class FragmentKeyboard extends DialogFragment
             break;
             default:  /* Just to suppress warnings */   break;
         }
+        
+        // Enable / disable the dot button
+        buttonDot.setEnabled(mathSymbolEditor.getEditingSymbol() == MathSymbolEditor.EditingSymbol.FACTOR && !mathSymbolEditor.containsDot());
+        
+        // Enable / disable the number buttons
+        final boolean enableNumberButtons = mathSymbolEditor.getEditingSymbol() != MathSymbolEditor.EditingSymbol.FACTOR || mathSymbolEditor.decimalCount() < 6;
+        for(int i = 0; i <= 9; ++i)
+            ((Button) view.findViewWithTag("keyboardButton" + Integer.toString(i))).setEnabled(enableNumberButtons);
+        
     }
     
     /** Activates the given tab
@@ -319,6 +316,9 @@ public class FragmentKeyboard extends DialogFragment
             // Get the number we pressed and add it to the MathSymbolEditor
             final int number = Integer.parseInt(((Button) v).getText().toString());
             mathSymbolEditor.addNumber(number);
+            
+            // The button state might need refreshing
+            refreshButtonState();
         }
     }
     
@@ -393,6 +393,17 @@ public class FragmentKeyboard extends DialogFragment
         public void onClick(final View v)
         {
             mathSymbolEditor.negate();
+        }
+    }
+
+    /** The OnClickListener for the dot button */
+    private class ButtonDotOnClickListener implements View.OnClickListener
+    {
+        @Override
+        public void onClick(final View v)
+        {
+            mathSymbolEditor.dot();
+            refreshButtonState();
         }
     }
     

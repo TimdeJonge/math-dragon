@@ -320,6 +320,72 @@ public class MathSymbolEditor extends View
     public EditingSymbol getEditingSymbol()
     { return editingSymbol; }
 
+    /** Converts a <tt>double</tt> to a string, dropping <tt>".0"</tt> if necessary.
+     * Also returns, for example, <tt>"0.002"</tt> instead of <tt>"2.0E-3"</tt>.
+     * @param x The <tt>double</tt> to convert
+     * @return The <tt>double</tt> as a string */
+    private String doubleToString(double x)
+    {
+        // Convert the double to a string
+        String str = Double.toString(x);
+        
+        // Search for an 'E'
+        final int ePos = str.indexOf('E');
+        if(ePos != -1)
+        {
+            // Determine the amount of zeros and whether they need to be appended or prepended
+            int zeros = Integer.parseInt(str.substring(ePos + 1));
+            final boolean append = zeros >= 0;
+            if(!append)
+                zeros = (-zeros) - 1;
+            
+            // Remember the part before the 'E'
+            String before = str.substring(0, ePos);
+            final int dotPos = before.indexOf('.');
+            if(dotPos != -1)
+            {
+                String tmp = before.substring(dotPos + 1);
+                while(tmp.endsWith("0"))
+                    tmp = tmp.substring(0, tmp.length() - 1);
+                before = before.substring(0, dotPos) + tmp;
+                
+                if(append)
+                    zeros -= tmp.length();
+                if(zeros < 0)
+                    before = before.substring(0, before.length() + zeros) + '.' + before.substring(before.length() + zeros);
+            }
+            boolean negative = before.startsWith("-");
+            if(negative)
+                before = before.substring(1);
+            
+            // Prepend/append the zeros
+            while(zeros > 0)
+            {
+                if(append)
+                    before += '0';
+                else
+                    before = '0' + before;
+                --zeros;
+            }
+            if(!append)
+                before = "0." + before;
+            
+            // Put back the minus sign
+            if(negative)
+                before = '-' + before;
+            
+            // Remember the result
+            str = before;
+        }
+        
+        // Chop off unnecessary '.' and '0'
+        while(str.contains(".") && (str.endsWith(".") || str.endsWith("0")))
+            str = str.substring(0, str.length() - 1);
+        
+        // Return the string
+        return str;
+    }
+
     /** Resets the symbol in this editor */
     public void reset()
     {
@@ -352,7 +418,7 @@ public class MathSymbolEditor extends View
         reset();
         
         // Set the factor
-        factor = Long.toString(mathSymbol.getFactor());
+        factor = doubleToString(mathSymbol.getFactor());
         
         // If the factor is not 0, we need to set the powers (and their visibility)
         if(mathSymbol.getFactor() != 0)
@@ -413,7 +479,7 @@ public class MathSymbolEditor extends View
         if(factor.isEmpty())
             out.setFactor(symbolVisible() ? 1 : 0);
         else
-            out.setFactor(factor.equals("-") ? -1 : Long.parseLong(factor));
+            out.setFactor(factor.equals("-") ? -1 : Double.parseDouble(factor));
         
         // Set the PI power
         if(showPi)
@@ -656,6 +722,39 @@ public class MathSymbolEditor extends View
             }
             break;
         }
+        
+        // Redraw and recalculate the size
+        invalidate();
+        requestLayout();
+    }
+    
+    /** Whether or not the factor currently contains a dot
+     * @return <tt>true</tt> if the factor contains a dot, <tt>false</tt> otherwise */
+    public boolean containsDot()
+    { return factor.contains("."); }
+    
+    /** The amount of decimals the current factor contains
+     * @return The amount of decimals as an integer */
+    public int decimalCount()
+    {
+        if(!containsDot()) return 0;
+        return factor.length() - factor.indexOf('.') - 1;
+    }
+
+    /** Adds a dot to the factor */
+    public void dot()
+    {
+        // We only add a dot to the factor
+        if(editingSymbol != EditingSymbol.FACTOR) return;
+        
+        // If the factor already contains a dot, we do nothing
+        if(factor.contains(".")) return;
+        
+        // Add the dot
+        if(factor.equals("-") || factor.isEmpty())
+            factor += "0.";
+        else
+            factor += '.';
         
         // Redraw and recalculate the size
         invalidate();
