@@ -5,6 +5,8 @@ import java.util.ArrayList;
 import org.teaminfty.math_dragon.R;
 import org.teaminfty.math_dragon.model.FormulaDatabase;
 import org.teaminfty.math_dragon.model.FormulaDatabase.Formula;
+import org.teaminfty.math_dragon.view.math.MathObjectEmpty;
+import org.teaminfty.math_dragon.view.math.MathSymbol;
 
 import android.app.DialogFragment;
 import android.os.Bundle;
@@ -35,11 +37,16 @@ public class FragmentSaveLoad extends DialogFragment {
         final ArrayList<String> list = new ArrayList<String>();
 
         FormulaDatabase formulaDatabase = new FormulaDatabase(getActivity());
-        //formulaDatabase.saveFormula(1, "ABC-formule", null);
+        //formulaDatabase.saveFormula(1, "ABC-formule", new MathSymbol(3));
+        //formulaDatabase.saveFormula(2, "ABC-formule", new MathObjectEmpty());
+        //formulaDatabase.saveFormula(3, "ABC-formule", new MathObjectEmpty());
+        //formulaDatabase.saveFormula(4, "ABC-formule", new MathObjectEmpty());
+        //System.out.println(formulaDatabase.getFormulaByID(1).name);
         for (Formula formula : formulaDatabase.getAllFormulas()){
-        	list.add(formula.name);
+        	list.add("formula.name");
         }
-        
+        formulaDatabase.close();
+        //list.add("Test");
         final ArrayAdapter<String> adapter = new ArrayAdapter<String>(view.getContext(), android.R.layout.simple_list_item_1, list);
         listView.setAdapter(adapter);
 
@@ -49,6 +56,7 @@ public class FragmentSaveLoad extends DialogFragment {
           public void onItemClick(AdapterView<?> parent, final View view,
               int position, long id) {
             final String item = (String) parent.getItemAtPosition(position);
+            // TODO load the loaded MathObject into the main screen
           }
 
         });
@@ -61,9 +69,12 @@ public class FragmentSaveLoad extends DialogFragment {
         @Override
         public void onClick(View btn)
         { 
-        	//FormulaDatabase formulaDatabase = new FormulaDatabase(getActivity());
-          	//EditText editText = (EditText) btn.findViewById(R.id.editTextSave);
-        	// TODO actually save the given equation
+        	FormulaDatabase formulaDatabase = new FormulaDatabase(getActivity());
+          	EditText editText = (EditText) getView().findViewById(R.id.editTextSave);
+          	formulaDatabase.saveFormula(formulaDatabase.getAllFormulas().size(), editText.getText().toString(), new MathSymbol(3));
+          	//TODO get MathObject from MainActivity, insert in line above
+        	System.out.println(formulaDatabase.getFormulaByID(155255));
+          	formulaDatabase.close();
         	dismiss(); }
     }
 

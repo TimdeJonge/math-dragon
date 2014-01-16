@@ -202,7 +202,7 @@ public class FormulaDatabase extends SQLiteOpenHelper
         if(cursor.getCount() == 0)
             return null;
         cursor.moveToFirst();
-        
+
         // Close the database connection
         db.close();
         
@@ -221,6 +221,7 @@ public class FormulaDatabase extends SQLiteOpenHelper
      */
     public boolean saveFormula(int id, String name, MathObject mathObject)
     {
+
         // Create a ContentValues instance we're going to pass to the database
         ContentValues values = new ContentValues(4);
         
@@ -284,7 +285,6 @@ public class FormulaDatabase extends SQLiteOpenHelper
         {
             // Insert the formula
             final long result = db.insert(TABLE_FORMULAS.NAME, null, values);
-
             // Close the database connection and return whether we've inserted the formula successfully
             db.close();
             return result != -1;
@@ -293,7 +293,6 @@ public class FormulaDatabase extends SQLiteOpenHelper
         {
             // Update the formula
             final long result = db.update(TABLE_FORMULAS.NAME, values, TABLE_FORMULAS.ID + " = " + Integer.toString(id), null);
-
             // Close the database connection and return whether we've inserted the formula successfully
             db.close();
             return result != 1;
