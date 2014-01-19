@@ -5,7 +5,9 @@ import org.matheclipse.core.expression.F;
 import org.matheclipse.core.interfaces.IExpr;
 import org.teaminfty.math_dragon.exceptions.EmptyChildException;
 import org.teaminfty.math_dragon.exceptions.MathException;
+import org.teaminfty.math_dragon.model.Database;
 import org.teaminfty.math_dragon.model.EvalHelper;
+import org.teaminfty.math_dragon.model.ExpressionBeautifier;
 import org.teaminfty.math_dragon.model.ModelHelper;
 import org.teaminfty.math_dragon.model.ParenthesesHelper;
 import org.teaminfty.math_dragon.view.TypefaceHolder;
@@ -13,7 +15,8 @@ import org.teaminfty.math_dragon.view.fragments.FragmentEvaluation;
 import org.teaminfty.math_dragon.view.fragments.FragmentMainScreen;
 import org.teaminfty.math_dragon.view.fragments.FragmentOperationsSource;
 import org.teaminfty.math_dragon.view.fragments.FragmentSaveLoad;
-import org.teaminfty.math_dragon.view.math.MathObject;
+import org.teaminfty.math_dragon.view.fragments.FragmentSubstitute;
+import org.teaminfty.math_dragon.view.math.Expression;
 
 import android.app.Activity;
 import android.content.Intent;
@@ -32,7 +35,6 @@ public class MainActivity extends Activity implements FragmentOperationsSource.C
 
     /** The ActionBarDrawerToggle that is used to toggle the drawer using the action bar */
     ActionBarDrawerToggle actionBarDrawerToggle = null;
-
     /** Class that loads the Symja library in a separate thread */
     private class SymjaLoader extends AsyncTask<Void, Void, Void>
     {
@@ -41,6 +43,9 @@ public class MainActivity extends Activity implements FragmentOperationsSource.C
         {
             // Simply do a simple (yet beautiful :D) calculation to make the system load Symja
             EvalEngine.eval(F.Plus(F.ZZ(1), F.Power(F.E, F.Times(F.Pi, F.I))));
+            
+            // Solve an integral to load that module
+            EvalEngine.eval(F.Integrate(F.x, F.x));
             
             // Return null (return value won't be used)
             return null;
@@ -56,7 +61,7 @@ public class MainActivity extends Activity implements FragmentOperationsSource.C
         TypefaceHolder.loadFromAssets(getAssets());
 
         // Set the default size in the MathObject class
-        MathObject.lineWidth = getResources().getDimensionPixelSize(R.dimen.math_object_line_width);
+        Expression.lineWidth = getResources().getDimensionPixelSize(R.dimen.math_object_line_width);
         
         // Load the layout
         setContentView(R.layout.main);
@@ -134,7 +139,7 @@ public class MainActivity extends Activity implements FragmentOperationsSource.C
     {
         // Get the MathObject
         FragmentMainScreen fragmentMainScreen = (FragmentMainScreen) getFragmentManager().findFragmentById(R.id.fragmentMainScreen);
-        MathObject obj = fragmentMainScreen.getMathObject();
+        Expression obj = fragmentMainScreen.getMathObject();
         
         // Only send to Wolfram|Alpha if the MathObject is completed
         if(obj.isCompleted())
@@ -157,13 +162,18 @@ public class MainActivity extends Activity implements FragmentOperationsSource.C
     {
         try
         {
+            // Load the substitutions
+            Database db = new Database(this);
+            EvalHelper.substitutions = db.getAllSubstitutions();
+            db.close();
+            
             // Calculate the answer
             FragmentMainScreen fragmentMainScreen = (FragmentMainScreen) getFragmentManager().findFragmentById(R.id.fragmentMainScreen);
             IExpr result = EvalEngine.eval( EvalHelper.eval(fragmentMainScreen.getMathObject()) );
 
             // Create an evaluation fragment and show the result
             FragmentEvaluation fragmentEvaluation = new FragmentEvaluation();
-            fragmentEvaluation.showMathObject(ParenthesesHelper.setParentheses(ModelHelper.toMathObject(result)));
+            fragmentEvaluation.showMathObject(ParenthesesHelper.setParentheses(ExpressionBeautifier.parse(ModelHelper.toExpression(result))));
             fragmentEvaluation.setEvalType(true);
             fragmentEvaluation.show(getFragmentManager(), "evaluation");
         }
@@ -178,7 +188,7 @@ public class MainActivity extends Activity implements FragmentOperationsSource.C
             e.printStackTrace();
         }
     }
-    public void test(View view)
+    public void favourite(View view)
     {
         FragmentSaveLoad fragmentSaveLoad = new FragmentSaveLoad();
         fragmentSaveLoad.show(getFragmentManager(), "saveload");
@@ -187,14 +197,18 @@ public class MainActivity extends Activity implements FragmentOperationsSource.C
     {
         try
         {
+            // Load the substitutions
+            Database db = new Database(this);
+            EvalHelper.substitutions = db.getAllSubstitutions();
+            db.close();
+            
             // Calculate the answer
             FragmentMainScreen fragmentMainScreen = (FragmentMainScreen) getFragmentManager().findFragmentById(R.id.fragmentMainScreen);
-            IExpr result = EvalEngine.eval( EvalHelper.eval(fragmentMainScreen.getMathObject()) );
-            // TODO Approximate the result
+            IExpr result = F.evaln( EvalHelper.eval(fragmentMainScreen.getMathObject()) );
 
             // Create an evaluation fragment and show the result
             FragmentEvaluation fragmentEvaluation = new FragmentEvaluation();
-            fragmentEvaluation.showMathObject(ParenthesesHelper.setParentheses(ModelHelper.toMathObject(result)));
+            fragmentEvaluation.showMathObject(ParenthesesHelper.setParentheses(ModelHelper.toExpression(result)));
             fragmentEvaluation.setEvalType(false);
             fragmentEvaluation.show(getFragmentManager(), "evaluation");
         }
@@ -215,6 +229,20 @@ public class MainActivity extends Activity implements FragmentOperationsSource.C
         // Simply clear the current formula
         FragmentMainScreen fragmentMainScreen = (FragmentMainScreen) getFragmentManager().findFragmentById(R.id.fragmentMainScreen);
         fragmentMainScreen.clear();
+    }
+    
+    /** The tag for the substitute dialog */
+    private static final String SUBSTITUTE_TAG = "substitute";
+    
+    public void substitute(View view)
+    {
+        // If a substitute dialog is already shown, stop here
+        if(getFragmentManager().findFragmentByTag(SUBSTITUTE_TAG) != null)
+            return;
+        
+        // Create and show the substitute dialog
+        FragmentSubstitute fragmentSubstitute = new FragmentSubstitute();
+        fragmentSubstitute.show(getFragmentManager(), SUBSTITUTE_TAG);
     }
 
     @Override

@@ -24,15 +24,6 @@
         android:onClick="evaluate"
         android:src="@drawable/evaluate" />
     
-    <ImageButton
-        android:id="@+id/btn_test"
-        style="@style/CircleButton"
-        android:layout_alignParentBottom="true"
-        android:layout_alignParentRight="true"
-        android:layout_margin="60dp"
-        android:contentDescription="@string/evaluate"
-        android:onClick="test"
-        android:src="@drawable/evaluate" />
 
     <ImageButton
         android:id="@+id/btn_approximate"
@@ -45,6 +36,7 @@
         android:src="@drawable/approximate" />
 
     <ImageButton
+        android:id="@+id/btn_wolfram"
         style="@style/CircleButton"
         android:layout_alignParentBottom="true"
         android:layout_margin="@dimen/main_screen_button_margin"
@@ -61,6 +53,7 @@
         android:layout_alignParentTop="true"
         android:layout_margin="@dimen/main_screen_button_margin"
         android:contentDescription="@string/favourite"
+        android:onClick="favourite"
         android:src="@drawable/favourite" />
 
     <ImageButton
@@ -100,7 +93,8 @@
         android:layout_alignParentLeft="true"
         android:layout_margin="@dimen/main_screen_button_margin"
         android:contentDescription="@string/substitute"
-        android:src="@drawable/substitute" />
+        android:src="@drawable/substitute"
+        android:onClick="substitute" />
 
     <!-- Buttons in the top left corner -->
     <ImageButton

@@ -1,88 +1,139 @@
 package org.teaminfty.math_dragon.model;
 
-import org.teaminfty.math_dragon.view.math.MathObject;
-import org.teaminfty.math_dragon.view.math.MathOperationDerivative;
-import org.teaminfty.math_dragon.view.math.MathOperationPower;
-import org.teaminfty.math_dragon.view.math.MathOperationDivide;
-import org.teaminfty.math_dragon.view.math.MathOperationRoot;
-import org.teaminfty.math_dragon.view.math.MathOperationSubtract;
-import org.teaminfty.math_dragon.view.math.MathParentheses;
-import org.teaminfty.math_dragon.view.math.MathSymbol;
+import org.teaminfty.math_dragon.view.math.Expression;
+import org.teaminfty.math_dragon.view.math.Parentheses;
+import org.teaminfty.math_dragon.view.math.Symbol;
+import org.teaminfty.math_dragon.view.math.operation.Derivative;
+import org.teaminfty.math_dragon.view.math.operation.binary.Divide;
+import org.teaminfty.math_dragon.view.math.operation.binary.Power;
+import org.teaminfty.math_dragon.view.math.operation.binary.Root;
+import org.teaminfty.math_dragon.view.math.operation.binary.Subtract;
 
-/** Class that helps setting parentheses at the right places in a {@link MathObject} */
+/** Class that helps setting parentheses at the right places in a {@link Expression} */
 public class ParenthesesHelper
 {
-    /** Makes a {@link MathObject} the child of another {@link MathObject}, while correctly placing / removing parentheses
-     * @param parent The {@link MathObject} that is to become the parent
-     * @param child The {@link MathObject} that is to become the child
-     * @param index The index where the child should be placed
+    /** Sets parentheses where necessary and removes unnecessary parentheses for the given {@link Expression}
+     * @param expr The {@link Expression} for which the parentheses should be set
+     * @return The {@link Expression} with the parentheses rightly set
      */
-    public static void makeChild(MathObject parent, MathObject child, int index)
+    public static Expression setParentheses(Expression expr)
     {
-        // Special case: the divide operator
-        if(parent instanceof MathOperationDivide)
-        {
-            if(child instanceof MathOperationDivide)
-                child = new MathParentheses(child);
-            else if(child instanceof MathParentheses && !(child.getChild(0) instanceof MathOperationDivide))
-            {
-                makeChild(parent, child.getChild(0), index);
-                return;
-            }
-        }
-        // Special case: the second operand of the subtract operator
-        else if(parent instanceof MathOperationSubtract && index == 1 && parent.getPrecedence() == child.getPrecedence())
-            child = new MathParentheses(child);
-        // Special case: the power operator
-        else if(parent instanceof MathOperationPower)
-        {
-            if(index == 0)
-            {
-                if(child instanceof MathSymbol && multipleSymbolsVisible((MathSymbol) child))
-                    child = new MathParentheses(child);
-                else if(child instanceof MathParentheses && !(child.getChild(0) instanceof MathSymbol && multipleSymbolsVisible((MathSymbol) child.getChild(0))))
-                {
-                    makeChild(parent, child.getChild(0), index);
-                    return;
-                }
-            }
-            else if(index == 1)
-            {
-                if(child instanceof MathOperationPower)
-                    child = new MathParentheses(child);
-                else if(child instanceof MathSymbol && powerVisible((MathSymbol) child))
-                    child = new MathParentheses(child);
-                else if( child instanceof MathParentheses && !(child.getChild(0) instanceof MathOperationPower || (child.getChild(0) instanceof MathSymbol && powerVisible((MathSymbol) child.getChild(0)))) )
-                {
-                    makeChild(parent, child.getChild(0), index);
-                    return;
-                }
-            }
-        }
-        // Special cases to never place parentheses:
-        //      all children of the root operator
-        //      the first child of the derivative operator
-        else if(!(parent instanceof MathOperationRoot) && !(parent instanceof MathOperationDerivative && index == 0))
-        {
-            // Wrap in parentheses if necessary
-            if(!(parent instanceof MathParentheses) && parent.getPrecedence() < child.getPrecedence())
-                child = new MathParentheses(child);
-            else if(child instanceof MathParentheses && (parent instanceof MathParentheses || child.getChild(0).getPrecedence() <= parent.getPrecedence()))
-            {
-                // Maybe the child is already wrapped in parentheses, in that case we unwrap it and make that MathObject a child of parent
-                makeChild(parent, child.getChild(0), index);
-                return;
-            }
-        }
+        // The root never is enclosed in parentheses
+        if(expr instanceof Parentheses)
+            return setParentheses(expr.getChild(0));
         
-        // Set the child
-        parent.setChild(index, child);
+        // Recursively set the parentheses correctly for all children of the expression
+        for(int i = expr.getChildCount(); i > 0; --i)
+            makeChild(expr, setParentheses(expr.getChild(i - 1)), i - 1);
+        
+        // Return the result
+        return expr;
     }
     
-    /** Returns whether multiple symbols are visible in the given {@link MathSymbol}
-     * @param symbol The {@link MathSymbol} to check
+    /** Makes a {@link Expression} the child of another {@link Expression}, while correctly placing / removing parentheses
+     * @param parent The {@link Expression} that is to become the parent
+     * @param child The {@link Expression} that is to become the child
+     * @param index The index where the child should be placed
+     */
+    private static void makeChild(Expression parent, Expression child, int index)
+    {
+        // The children, one with parentheses, the other one without them
+        Expression withParentheses = null;
+        Expression withoutParentheses = null;
+        
+        // Set the children (one with and one without parentheses)
+        if(child instanceof Parentheses)
+        {
+            withParentheses = child;
+            withoutParentheses = child.getChild(0);
+            while(withoutParentheses instanceof Parentheses)
+            {
+                withParentheses = withoutParentheses;
+                withoutParentheses = withoutParentheses.getChild(0);
+            }
+        }
+        else
+        {
+            withParentheses = new Parentheses(child);
+            withoutParentheses = child;
+        }
+
+        // Whether or not parentheses should be placed
+        boolean placeParentheses = false;
+        
+        // Whether or not the value in placeParentheses is definitive
+        boolean definitivePlaceParentheses = false;
+
+        // Special case: the divide operator
+        // We only place parentheses around other divide operator (and around nothing else)
+        if(parent instanceof Divide)
+        {
+            if(withoutParentheses instanceof Divide)
+                placeParentheses = true;
+            definitivePlaceParentheses = true;
+        }
+
+        // Special case: the second operand of the subtract operator
+        if(parent instanceof Subtract && index == 1 && parent.getPrecedence() == withoutParentheses.getPrecedence())
+        {
+            placeParentheses = true;
+            definitivePlaceParentheses = true;
+        }
+
+        // Special case: the power operator
+        if(parent instanceof Power)
+        {
+            // Place parentheses around the base of the power operator
+            // if the it's a Symbol and the Symbol has multiple visible symbols
+            // or if its precedence is lower than that of the power operator
+            if(index == 0)
+            {
+                if(withoutParentheses instanceof Symbol && multipleSymbolsVisible((Symbol) withoutParentheses))
+                    placeParentheses = true;
+                else if(parent.getPrecedence() < withoutParentheses.getPrecedence())
+                    placeParentheses = true;
+            }
+            
+            // Place parentheses around the exponent if the exponent itself is a power
+            // either as a Power operation or a Symbol 
+            if(index == 1)
+            {
+                if(withoutParentheses instanceof Power)
+                    placeParentheses = true;
+                else if(withoutParentheses instanceof Symbol && powerVisible((Symbol) withoutParentheses))
+                    placeParentheses = true;
+            }
+            
+            // Make the value of placeParentheses definitive
+            definitivePlaceParentheses = true;
+        }
+
+        // Special cases: the children of a Root operation, Parentheses and the first child of the Derivative
+        // There should never be placed parentheses around these children
+        if(parent instanceof Root || (parent instanceof Derivative && index == 0) || parent instanceof Parentheses)
+        {
+            placeParentheses = false;
+            definitivePlaceParentheses = true;
+        }
+        
+        // Place parentheses if the child has a lower precedence
+        if(!definitivePlaceParentheses)
+        {
+            if(parent.getPrecedence() < withoutParentheses.getPrecedence())
+                placeParentheses = true;
+        }
+
+        // Set the child
+        if(placeParentheses)
+            parent.setChild(index, withParentheses);
+        else
+            parent.setChild(index, withoutParentheses);
+    }
+    
+    /** Returns whether multiple symbols are visible in the given {@link Symbol}
+     * @param symbol The {@link Symbol} to check
      * @return <tt>true</tt> if multiple symbols are visible, <tt>false</tt> otherwise */
-    private static boolean multipleSymbolsVisible(MathSymbol symbol)
+    private static boolean multipleSymbolsVisible(Symbol symbol)
     {
         // Keeps track of whether or not we've already found a visible symbol
         boolean symbolVisible = symbol.getFactor() != 1;
@@ -122,10 +173,10 @@ public class ParenthesesHelper
         return false;
     }
     
-    /** Returns whether or not powers are visible in the given {@link MathSymbol}
-     * @param symbol The {@link MathSymbol} to check
+    /** Returns whether or not powers are visible in the given {@link Symbol}
+     * @param symbol The {@link Symbol} to check
      * @return <tt>true</tt> if powers are visible, <tt>false</tt> otherwise */
-    private static boolean powerVisible(MathSymbol symbol)
+    private static boolean powerVisible(Symbol symbol)
     {
         // Check for the constant's symbols (pi, e and the imaginary unit)
         if((symbol.getPiPow() | symbol.getEPow() | symbol.getIPow()) > 1)
@@ -140,23 +191,5 @@ public class ParenthesesHelper
         
         // If we've come here we haven't found any powers
         return false;
-    }
-    
-    /** Sets parentheses where necessary and removes unnecessary parentheses for the given {@link MathObject}
-     * @param mathObject The {@link MathObject} for which the parentheses should be set
-     * @return The {@link MathObject} with the parentheses rightly set
-     */
-    public static MathObject setParentheses(MathObject mathObject)
-    {
-        // The root never is enclosed in parentheses
-        if(mathObject instanceof MathParentheses)
-            return setParentheses(mathObject.getChild(0));
-        
-        // For every child of mathObject, use makeChild() to set it correctly as a child
-        for(int i = mathObject.getChildCount(); i > 0; --i)
-            makeChild(mathObject, mathObject.getChild(i - 1), i - 1);
-        
-        // Return the result
-        return mathObject;
     }
 }

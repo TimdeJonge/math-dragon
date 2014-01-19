@@ -3,10 +3,10 @@ package org.teaminfty.math_dragon.view.fragments;
 import java.util.ArrayList;
 
 import org.teaminfty.math_dragon.R;
-import org.teaminfty.math_dragon.model.FormulaDatabase;
-import org.teaminfty.math_dragon.model.FormulaDatabase.Formula;
-import org.teaminfty.math_dragon.view.math.MathObjectEmpty;
-import org.teaminfty.math_dragon.view.math.MathSymbol;
+import org.teaminfty.math_dragon.model.Database;
+import org.teaminfty.math_dragon.model.Database.Formula;
+import org.teaminfty.math_dragon.view.math.Symbol;
+import org.teaminfty.math_dragon.view.math.operation.binary.Add;
 
 import android.app.DialogFragment;
 import android.os.Bundle;
@@ -36,16 +36,14 @@ public class FragmentSaveLoad extends DialogFragment {
       
         final ArrayList<String> list = new ArrayList<String>();
 
-        FormulaDatabase formulaDatabase = new FormulaDatabase(getActivity());
-        //formulaDatabase.saveFormula(1, "ABC-formule", new MathSymbol(3));
-        //formulaDatabase.saveFormula(2, "ABC-formule", new MathObjectEmpty());
-        //formulaDatabase.saveFormula(3, "ABC-formule", new MathObjectEmpty());
-        //formulaDatabase.saveFormula(4, "ABC-formule", new MathObjectEmpty());
-        //System.out.println(formulaDatabase.getFormulaByID(1).name);
-        for (Formula formula : formulaDatabase.getAllFormulas()){
-        	list.add("formula.name");
+        Database db = new Database(getActivity());
+        db.saveFormula(1,"hoi",new Add(new Symbol(3), new Symbol(5)));
+        System.out.println(db.getFormulaByID(1).name); //I DONT UNDERSTAND WHAT GOES WRONG HERE
+        for (Formula formula : db.getAllFormulas()){
+        	System.out.println(formula.name);
+        	list.add(formula.name);
         }
-        formulaDatabase.close();
+        db.close();
         //list.add("Test");
         final ArrayAdapter<String> adapter = new ArrayAdapter<String>(view.getContext(), android.R.layout.simple_list_item_1, list);
         listView.setAdapter(adapter);
@@ -69,12 +67,12 @@ public class FragmentSaveLoad extends DialogFragment {
         @Override
         public void onClick(View btn)
         { 
-        	FormulaDatabase formulaDatabase = new FormulaDatabase(getActivity());
+        	Database db = new Database(getActivity());
           	EditText editText = (EditText) getView().findViewById(R.id.editTextSave);
-          	formulaDatabase.saveFormula(formulaDatabase.getAllFormulas().size(), editText.getText().toString(), new MathSymbol(3));
+          	db.saveFormula(db.getAllFormulas().size(), editText.getText().toString(), new Symbol(3));
           	//TODO get MathObject from MainActivity, insert in line above
-        	System.out.println(formulaDatabase.getFormulaByID(155255));
-          	formulaDatabase.close();
+        	System.out.println(db.getFormulaByID(155255));
+          	db.close();
         	dismiss(); }
     }
 
