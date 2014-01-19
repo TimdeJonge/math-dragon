@@ -3,7 +3,7 @@ package org.teaminfty.math_dragon.view.fragments;
 import org.teaminfty.math_dragon.R;
 import org.teaminfty.math_dragon.model.Database;
 import org.teaminfty.math_dragon.view.TypefaceHolder;
-import org.teaminfty.math_dragon.view.math.Symbol;
+import org.teaminfty.math_dragon.view.math.Expression;
 
 import android.app.DialogFragment;
 import android.content.DialogInterface;
@@ -70,17 +70,27 @@ public class FragmentSubstitute extends DialogFragment
         getDialog().getWindow().setAttributes(params);
     }
     
+    /** Gets the value as a string */
+    private String valueToString(Expression value)
+    {
+        String str = value.toString();
+        str = str.replace("(", "");
+        str = str.replace(")", "");
+        str = str.replace(" ", "");
+        return str;
+    }
+    
     /** The prefix of the tag for all substitution views */
     private static final String SUBSTITUTION_TAG_PREFIX = "substitution_";
     
     /** Sets (or adds/removes) a substitution for the given variable.
      * @param var The variable name to set the substitution for
-     * @param symbol The new value of the variable (or <tt>null</tt> to remove the variable
+     * @param expr The new value of the variable (or <tt>null</tt> to remove the variable
      * @param root The View containing all substitution views */
-    private void setSubstitution(char var, Symbol symbol, ViewGroup root)
+    private void setSubstitution(char var, Expression expr, ViewGroup root)
     {
         // Check whether or not we're deleting the substitution view
-        if(symbol == null)
+        if(expr == null)
         {
             if(root.findViewWithTag(SUBSTITUTION_TAG_PREFIX + var) != null)
                 root.removeView(root.findViewWithTag(SUBSTITUTION_TAG_PREFIX + var));
@@ -99,7 +109,7 @@ public class FragmentSubstitute extends DialogFragment
             row.setTag(SUBSTITUTION_TAG_PREFIX + var);
             
             // Set the click listeners
-            RowClickListener rowClickListener = new RowClickListener(var, symbol);
+            RowClickListener rowClickListener = new RowClickListener(var);
             row.setOnClickListener(rowClickListener);
             row.setOnLongClickListener(rowClickListener);
             
@@ -129,10 +139,13 @@ public class FragmentSubstitute extends DialogFragment
         varName.setTypeface(TypefaceHolder.dejavuSans);
         varVal.setTypeface(TypefaceHolder.dejavuSans);
         
+        // Set the typeface for the TextViews
+        varName.setTypeface(TypefaceHolder.dejavuSans);
+        varVal.setTypeface(TypefaceHolder.dejavuSans);
+        
         // Set the text for the TextViews
-        final String symbolStr = symbol.toString();
         varName.setText(Character.toString(var));
-        varVal.setText(symbolStr.substring(1, symbolStr.length() - 1));
+        varVal.setText(valueToString(expr));
     }
     
     @Override
@@ -175,15 +188,15 @@ public class FragmentSubstitute extends DialogFragment
     private class SetSubstitutionListener implements FragmentSubstitutionEditor.OnConfirmListener
     {
         @Override
-        public void confirmed(char varName, Symbol mathSymbol)
+        public void confirmed(char varName, Expression expr)
         {
             // Save the substitution to the database
             Database db = new Database(getActivity());
-            db.saveSubstitution(new Database.Substitution(varName, mathSymbol));
+            db.saveSubstitution(new Database.Substitution(varName, expr));
             db.close();
             
             // Update the interface
-            setSubstitution(varName, mathSymbol, (ViewGroup) getView().findViewById(R.id.layout_substitute_list));
+            setSubstitution(varName, expr, (ViewGroup) getView().findViewById(R.id.layout_substitute_list));
         }
     }
     
@@ -216,18 +229,10 @@ public class FragmentSubstitute extends DialogFragment
         /** The name of the variable that is to be substituted */
         private char varName;
         
-        /** The value of the substitution */
-        private Symbol value;
-        
         /** Constructor
-         * @param name The name of the variable that is to be substituted
-         * @param symbol The value of the substitution
-         */
-        public RowClickListener(char name, Symbol symbol)
-        {
-            varName = name;
-            value = symbol;
-        }
+         * @param name The name of the variable that is to be substituted */
+        public RowClickListener(char name)
+        { varName = name; }
         
         @Override
         public void onClick(View v)
@@ -243,8 +248,11 @@ public class FragmentSubstitute extends DialogFragment
             editor.setOnConfirmListener(new SetSubstitutionListener());
             
             // Set the initial value
+            Database db = new Database(getActivity());
             editor.initVarName(varName);
-            editor.initValue(value);
+            if(db.substitutionExists(varName))
+                editor.initValue(db.getSubstitution(varName).value);
+            db.close();
             
             // Show the editor
             editor.show(getFragmentManager(), EDITOR_TAG);

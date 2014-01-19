@@ -12,7 +12,9 @@ import org.teaminfty.math_dragon.view.math.Symbol;
 import org.teaminfty.math_dragon.view.math.Expression;
 import org.teaminfty.math_dragon.view.math.Empty;
 import org.teaminfty.math_dragon.view.math.operation.Integral;
+import org.teaminfty.math_dragon.view.math.operation.binary.Add;
 import org.teaminfty.math_dragon.view.math.operation.binary.Linear;
+import org.teaminfty.math_dragon.view.math.operation.binary.Subtract;
 
 import android.content.ClipData;
 import android.content.Context;
@@ -138,6 +140,20 @@ public class MathView extends View
         invalidate();
     }
     
+    /** Sets the default height of the expression
+     * @param height The new default height */
+    public void setDefaultHeight(int height)
+    {
+        // Set the default height
+        expression.setDefaultHeight((int) (expressionDefaultHeight = height));
+
+        // Invalidate the cache
+        cache = null;
+
+        // Redraw
+        invalidate();
+    }
+    
     /** Resets the scroll position */
     public void resetScroll()
     {
@@ -166,9 +182,9 @@ public class MathView extends View
         public void changed(Expression expression);
         
         /** Called when a keyboard with the given confirm listener should be shown
-         * @param mathSymbol The initial value for the input (can be <tt>null</tt>)
+         * @param expr The initial value for the input (can be <tt>null</tt>)
          * @param listener The confirm listener */
-        public void showKeyboard(Symbol mathSymbol, FragmentKeyboard.OnConfirmListener listener);
+        public void showKeyboard(Expression expr, FragmentKeyboard.OnConfirmListener listener);
 
         /** Called when a warning with the given information should be shown
      * @param title The ID of the string resource that should be the title
@@ -185,12 +201,12 @@ public class MathView extends View
     { onEventListener = listener; }
     
     /** Asks the parent fragment to show the keyboard with the given confirm listener
-     * @param mathSymbol The initial value for the input (can be <tt>null</tt>)
+     * @param expr The initial value for the input (can be <tt>null</tt>)
      * @param listener The confirm listener */
-    protected void showKeyboard(Symbol mathSymbol, FragmentKeyboard.OnConfirmListener listener)
+    protected void showKeyboard(Expression expr, FragmentKeyboard.OnConfirmListener listener)
     {
         if(onEventListener != null)
-            onEventListener.showKeyboard(mathSymbol, listener);
+            onEventListener.showKeyboard(expr, listener);
     }
     
     /** Call {@link OnEventListener#change() change()} on the current {@link OnEventListener} */
@@ -257,7 +273,8 @@ public class MathView extends View
         canvas.restore();
     }
     
-    /** Bounds the scrolling translation to make sure there is always a part of the current {@link Expression} visible */
+    /** Bounds the scrolling translation to make sure there is always a part of the current {@link Expression} visible
+     * Also listens for (long) click events */
     private void boundScrollTranslation()
     {
         // Get the bounding box of the Expression
@@ -312,27 +329,58 @@ public class MathView extends View
             ArrayDeque<HoverInformation> queue = new ArrayDeque<HoverInformation>();
             queue.addLast(new HoverInformation(expression, boundingBox, null, 0));
             
+            // The parents we've gone through
+            ArrayList<HoverInformation> parents = new ArrayList<HoverInformation>();
+            
             // Keep going until the queue is empty
             while(!queue.isEmpty())
             {
                 // Pop off an element of the queue
                 HoverInformation info = queue.pollFirst();
                 
-                // If the Expression is Empty or Symbol, we check if we clicked on it
-                if(info.expression instanceof Empty || info.expression instanceof Symbol)
+                // If the Expression is a term, we check if we clicked on it
+                if(info.expression instanceof Empty || info.expression instanceof Symbol || ((info.expression instanceof Add || info.expression instanceof Subtract) && isTerm(info.expression)))
                 {
-                    // If we click inside the object, we're done looking
-                    if(info.boundingBox.contains(clickPos.x, clickPos.y))
+                    // Whether or not a hit was found
+                    boolean hit = false;
+                    
+                    // Check if we clicked the object's operator
+                    final Rect[] boundingBoxes = info.expression.getOperatorBoundingBoxes();
+                    for(Rect box : boundingBoxes)
                     {
-                        // Show the keyboard with the given confirm listener
-                        if(info.expression instanceof Symbol)
-                            showKeyboard((Symbol) info.expression, new ExpressionReplacer(info));
-                        else
-                            showKeyboard(null, new ExpressionReplacer(info));
+                        box.offset(info.boundingBox.left, info.boundingBox.top);
+                        if(box.contains(clickPos.x, clickPos.y))
+                        {
+                            // Determine the parent that we should pass as default value to the keyboard
+                            for(int i = parents.size() - 1; i >= 0; --i)
+                            {
+                                if(isTerm(parents.get(i).expression))
+                                    info = parents.get(i);
+                                else
+                                    break;
+                            }
+                            
+                            // Show the keyboard with the given confirm listener
+                            if(info.expression instanceof Empty)
+                                showKeyboard(null, new ExpressionReplacer(info));
+                            else
+                                showKeyboard(info.expression, new ExpressionReplacer(info));
+                            
+                            // We found a hit
+                            hit = true;
+                        }
                     }
+                    
+                    // Stop if we found a hit
+                    if(hit)
+                        break;
                 }
-                else
+                
+                if(info.expression.getChildCount() != 0)
                 {
+                    // Add this expression as a parent
+                    parents.add(info);
+                    
                     // Add the children we click on to the queue
                     for(int i = 0; i < info.expression.getChildCount(); ++i)
                     {
@@ -348,6 +396,28 @@ public class MathView extends View
             }
             
             // Always return true
+            return true;
+        }
+        
+        /** Returns true if the given {@link Expression} only contains children that are an instance of
+         * {@link Add}, {@link Subtract}, {@link Empty} or {@link Symbol}.
+         * The {@link Expression} itself has to be of one of these types as well.
+         * @param expr The {@link Expression} to check
+         * @return <tt>true</tt> if the children are only of the described types, <tt>false</tt> otherwise. */
+        private boolean isTerm(Expression expr)
+        {
+            // Check the type of the expression itself
+            if(!(expr instanceof Symbol || expr instanceof Empty || expr instanceof Add || expr instanceof Subtract))
+                return false;
+            
+            // Loop through all children and check their type
+            for(int i = 0; i < expr.getChildCount(); ++i)
+            {
+                if(!isTerm(expr.getChild(i)))
+                    return false;
+            }
+            
+            // If we've come here, the expression and all of its children must be of the right type
             return true;
         }
         
@@ -593,7 +663,10 @@ public class MathView extends View
             if(info.parent == null)
                 setExpressionHelper(newSuperParent);
             else
-                ParenthesesHelper.makeChild(info.parent, newSuperParent, info.childIndex);
+            {
+                info.parent.setChild(info.childIndex, newSuperParent);
+                ParenthesesHelper.setParentheses(expression);
+            }
             
             info.parent = newParent;
             info.childIndex = 0;
@@ -618,7 +691,10 @@ public class MathView extends View
             if(info.parent == null)
                 setExpressionHelper(newSuperParent);
             else
-                ParenthesesHelper.makeChild(info.parent, newSuperParent, info.childIndex);
+            {
+                info.parent.setChild(info.childIndex, newSuperParent);
+                ParenthesesHelper.setParentheses(expression);
+            }
             
             info.parent = newParent;
             info.childIndex = 1;
@@ -726,6 +802,10 @@ public class MathView extends View
                 // Add the children we intersect with to the queue
                 for(int i = 0; i < info.expression.getChildCount(); ++i)
                 {
+                    // Ignore the 'integrate over' child of the integral
+                    if(info.expression instanceof Integral && i == 1)
+                        continue;
+                    
                     // Get the bounding box for the child
                     Rect childBoundingBox = info.expression.getChildBoundingBox(i);
                     childBoundingBox.offset(info.boundingBox.left, info.boundingBox.top);
@@ -760,7 +840,10 @@ public class MathView extends View
                     if(currHover.parent == null)
                         setExpressionHelper(dragExpr);
                     else
-                        ParenthesesHelper.makeChild(currHover.parent, dragExpr, currHover.childIndex);
+                    {
+                        currHover.parent.setChild(currHover.childIndex, dragExpr);
+                        ParenthesesHelper.setParentheses(expression);
+                    }
                 }
                 else
                 {
@@ -769,11 +852,12 @@ public class MathView extends View
                     freeExpression(currHover);
                     
                     // Insert the Expression into to Expression tree
-                    ParenthesesHelper.makeChild(dragExpr, currHover.expression, sourceChild);
+                    dragExpr.setChild(sourceChild, currHover.expression);
                     if(currHover.parent == null)
                         setExpressionHelper(dragExpr);
                     else
-                        ParenthesesHelper.makeChild(currHover.parent, dragExpr, currHover.childIndex);
+                        currHover.parent.setChild(currHover.childIndex, dragExpr);
+                    ParenthesesHelper.setParentheses(expression);
                 }
                 
                 // Make sure the Expression and all of its descendants have the right state
@@ -835,55 +919,63 @@ public class MathView extends View
         }
 
         @Override
-        public void confirmed(Symbol mathSymbol)
+        public void confirmed(Expression input)
         {
             // Keep track of whether a warning should be shown or not
             int warningId = 0;
             
             // Place the symbol
             if(expressionInfo.parent == null)
-                setExpressionHelper(mathSymbol);
+                setExpressionHelper(input);
             else
             {
                 // In the 'integrate over' child only a single variable is allowed
                 if(expressionInfo.parent instanceof Integral && expressionInfo.childIndex == 1)
                 {
-                    // No constants allowed
-                    if(mathSymbol.getFactor() != 1 || (mathSymbol.getPiPow() | mathSymbol.getEPow() | mathSymbol.getIPow()) != 0)
-                        warningId = R.string.invalid_integrate_over;
-                    else
+                    // Only allow a Symbol
+                    if(input instanceof Symbol)
                     {
-                        // Check if exactly one variable is used
-                        boolean varVisible = false;
-                        for(int i = 0; i < mathSymbol.varPowCount(); ++i)
+                        Symbol mathSymbol = (Symbol) input;
+                        
+                        // No constants allowed
+                        if(mathSymbol.getFactor() != 1 || (mathSymbol.getPiPow() | mathSymbol.getEPow() | mathSymbol.getIPow()) != 0)
+                            warningId = R.string.invalid_integrate_over;
+                        else
                         {
-                            if(mathSymbol.getVarPow(i) == 0)
-                                continue;
-                            else if(mathSymbol.getVarPow(i) == 1)
+                            // Check if exactly one variable is used
+                            boolean varVisible = false;
+                            for(int i = 0; i < mathSymbol.varPowCount(); ++i)
                             {
-                                if(varVisible)
+                                if(mathSymbol.getVarPow(i) == 0)
+                                    continue;
+                                else if(mathSymbol.getVarPow(i) == 1)
+                                {
+                                    if(varVisible)
+                                    {
+                                        warningId = R.string.invalid_integrate_over;
+                                        break;
+                                    }
+                                    else
+                                        varVisible = true;
+                                }
+                                else
                                 {
                                     warningId = R.string.invalid_integrate_over;
                                     break;
                                 }
-                                else
-                                    varVisible = true;
                             }
-                            else
-                            {
+                            if(!varVisible)
                                 warningId = R.string.invalid_integrate_over;
-                                break;
-                            }
                         }
-                        if(!varVisible)
-                            warningId = R.string.invalid_integrate_over;
                     }
+                    else
+                        warningId = R.string.invalid_integrate_over;
                 }
                         
                 // Only insert the symbol if no problems have been found
                 if(warningId == 0)
                 {
-                    expressionInfo.parent.setChild(expressionInfo.childIndex, mathSymbol);
+                    expressionInfo.parent.setChild(expressionInfo.childIndex, input);
                     ParenthesesHelper.setParentheses(expression);
                 }
             }
